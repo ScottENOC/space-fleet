@@ -1,3 +1,3 @@
 // main.js initialises the editor first; then select the intended tiny starter for Player.
-// Enemy already defaults to a Sparrow, giving a fair 7-cell vs 7-cell baseline.
+// Enemy also defaults to the Sparrow, giving a fair 9-cell vs 9-cell baseline.
 document.querySelector('#presetPursuit')?.click();
