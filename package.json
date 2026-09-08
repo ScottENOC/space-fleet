@@ -1,0 +1,1 @@
+{"type":"module","scripts":{"benchmark":"node benchmark.mjs"}}
