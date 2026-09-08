@@ -7,6 +7,9 @@ let designs={A:presetBroadside(),B:presetPursuit()},activeSlot='A',selected='gun
 let battle,paused=false,simSpeed=1,last=performance.now();
 let cameraMode='focus',focusTeam='A',camera={x:0,y:0,scale:1};
 
+const moduleColours={gun:'#dedede',laser:'#ff7c7c',missile:'#d88962',armor:'#777',reactor:'#f4cf63',shield:'#79e0ff',engine:'#56b6ff',bridge:'#d9e1ec',radiator:'#a895c7'};
+const moduleLabels={gun:'G',laser:'L',missile:'M',armor:'A',reactor:'R',shield:'S',engine:'E',bridge:'B',radiator:'D'};
+
 function current(){return designs[activeSlot]}
 function reset(seed=Math.floor(Math.random()*1e9)){battle=new Battle(blueprintToShip(designs.A,'A'),blueprintToShip(designs.B,'B'),seed);logEl.innerHTML='';syncFocusOptions();cameraMode='focus';setCameraButtons();}
 reset(7);
@@ -47,7 +50,6 @@ function renderGrid(){
 
 function resize(){const r=canvas.getBoundingClientRect(),d=devicePixelRatio||1;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);ctx.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',resize);resize();
-
 function livingShips(){return battle.ships.filter(s=>!s.dead)}
 function focusShip(){return battle.ships.find(s=>s.team===focusTeam&&!s.dead)||livingShips()[0]||battle.ships[0]}
 function syncFocusOptions(){if(!battle)return;const sel=$('#focusShip');sel.innerHTML=battle.ships.map(s=>`<option value="${s.team}">${s.name}</option>`).join('');if(!battle.ships.some(s=>s.team===focusTeam))focusTeam=battle.ships[0]?.team||'A';sel.value=focusTeam;}
@@ -59,52 +61,73 @@ $('#focusShip').onchange=e=>{focusTeam=e.target.value;cameraMode='focus';setCame
 function updateCamera(){
   const w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)return;
   if(cameraMode==='focus'){
-    const s=focusShip();if(!s)return;
-    camera.x=s.x;camera.y=s.y;
-    const targetPixels=Math.min(w,h)*0.20;
-    camera.scale=Math.max(0.03,targetPixels/Math.max(s.length,s.width,1));
-    $('#cameraReadout').textContent=`Focus · ${s.name} · ${(camera.scale).toFixed(2)} px/m`;
+    const s=focusShip();if(!s)return;camera.x=s.x;camera.y=s.y;
+    // Keep the entire ship inside roughly a 1/5 by 1/5 box regardless of aspect ratio.
+    camera.scale=Math.max(.02,Math.min((w*.20)/Math.max(s.length,1),(h*.20)/Math.max(s.width,1)));
+    $('#cameraReadout').textContent=`Focus · ${s.name} · ship ${(s.length*camera.scale).toFixed(0)}×${(s.width*camera.scale).toFixed(0)} px`;
   }else{
     const ships=livingShips();if(!ships.length)return;
-    let minX=Math.min(...ships.map(s=>s.x-s.radius)),maxX=Math.max(...ships.map(s=>s.x+s.radius)),minY=Math.min(...ships.map(s=>s.y-s.radius)),maxY=Math.max(...ships.map(s=>s.y+s.radius));
-    const spanX=Math.max(120,maxX-minX),spanY=Math.max(120,maxY-minY),pad=0.16;
-    camera.x=(minX+maxX)/2;camera.y=(minY+maxY)/2;
-    camera.scale=Math.max(0.001,Math.min(w/(spanX*(1+pad*2)),h/(spanY*(1+pad*2))));
-    $('#cameraReadout').textContent=`Fleet · ${(spanX/1000).toFixed(1)} × ${(spanY/1000).toFixed(1)} km spread`;
+    const minX=Math.min(...ships.map(s=>s.x-s.radius)),maxX=Math.max(...ships.map(s=>s.x+s.radius)),minY=Math.min(...ships.map(s=>s.y-s.radius)),maxY=Math.max(...ships.map(s=>s.y+s.radius));
+    const spanX=Math.max(120,maxX-minX),spanY=Math.max(120,maxY-minY),pad=.16;camera.x=(minX+maxX)/2;camera.y=(minY+maxY)/2;
+    camera.scale=Math.max(.001,Math.min(w/(spanX*(1+pad*2)),h/(spanY*(1+pad*2))));$('#cameraReadout').textContent=`Fleet · ${(spanX/1000).toFixed(1)} × ${(spanY/1000).toFixed(1)} km spread`;
   }
 }
-function worldToScreen(x,y){return [canvas.clientWidth/2+(x-camera.x)*camera.scale,canvas.clientHeight/2+(y-camera.y)*camera.scale]}
+function worldToScreen(x,y){return[canvas.clientWidth/2+(x-camera.x)*camera.scale,canvas.clientHeight/2+(y-camera.y)*camera.scale]}
+function localCellCentre(s,cx,cy){const cs=s.grid?.cellMetres||3;return[(cx+.5-(s.grid?.width||1)/2)*cs,(cy+.5-(s.grid?.height||1)/2)*cs]}
 
+function drawHullFrame(s){
+  if(!s.grid?.validCells?.length){ctx.strokeRect(-s.length*camera.scale/2,-s.width*camera.scale/2,s.length*camera.scale,s.width*camera.scale);return}
+  const cs=s.grid.cellMetres*camera.scale;ctx.lineWidth=Math.max(.7,Math.min(1.5,camera.scale*.45));
+  for(const [cx,cy] of s.grid.validCells){const [x,y]=localCellCentre(s,cx,cy);ctx.strokeRect(x*camera.scale-cs/2,y*camera.scale-cs/2,cs,cs)}
+}
+function drawDirectionArrow(x,y,a,length,colour='#fff'){
+  ctx.strokeStyle=colour;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*length,y+Math.sin(a)*length);ctx.stroke();
+  const ex=x+Math.cos(a)*length,ey=y+Math.sin(a)*length;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(a+2.55)*Math.min(6,length*.35),ey+Math.sin(a+2.55)*Math.min(6,length*.35));ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(a-2.55)*Math.min(6,length*.35),ey+Math.sin(a-2.55)*Math.min(6,length*.35));ctx.stroke();
+}
+function drawModule(s,m,isFocused){
+  const colour=moduleColours[m.type]||'#aaa',alpha=m.hp>0?1:.18;ctx.globalAlpha=alpha;
+  if(m.gridCells?.length&&s.grid){
+    const cs=s.grid.cellMetres*camera.scale;
+    for(const [cx,cy] of m.gridCells){const [lx,ly]=localCellCentre(s,cx,cy),x=lx*camera.scale,y=ly*camera.scale;ctx.fillStyle=colour;ctx.fillRect(x-cs*.43,y-cs*.43,cs*.86,cs*.86);if(isFocused&&cs>9){ctx.fillStyle='#071019';ctx.font=`${Math.max(7,Math.min(11,cs*.43))}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(moduleLabels[m.type]||'',x,y)}}
+  }else{
+    const x=m.x*camera.scale,y=m.y*camera.scale,sz=Math.max(3,3*camera.scale);ctx.fillStyle=colour;ctx.fillRect(x-sz/2,y-sz/2,sz,sz);
+  }
+  const x=m.x*camera.scale,y=m.y*camera.scale;
+  if(m.type==='engine'){
+    const a=m.dir||0,arrow=Math.max(7,(s.grid?.cellMetres||3)*camera.scale*.9);drawDirectionArrow(x,y,a,arrow,'#bde7ff');
+    if(m.active){const plume=Math.max(8,(s.grid?.cellMetres||3)*camera.scale*(1.2+2*(m.output||1)));ctx.strokeStyle='#6fcaff';ctx.lineWidth=Math.max(2,camera.scale*.7);ctx.beginPath();ctx.moveTo(x-Math.cos(a)*arrow*.35,y-Math.sin(a)*arrow*.35);ctx.lineTo(x-Math.cos(a)*plume,y-Math.sin(a)*plume);ctx.stroke();}
+  }
+  if(['gun','laser','missile'].includes(m.type))drawDirectionArrow(x,y,m.mountDir||0,Math.max(7,(s.grid?.cellMetres||3)*camera.scale*.9),'#fff');
+  ctx.globalAlpha=1;
+}
 function drawShip(s){
-  const [sx,sy]=worldToScreen(s.x,s.y);ctx.save();ctx.translate(sx,sy);ctx.rotate(s.angle);ctx.globalAlpha=s.dead?.35:1;ctx.strokeStyle=s.team==='A'?'#d7b96d':'#79b8ff';ctx.lineWidth=2;ctx.strokeRect(-s.length*camera.scale/2,-s.width*camera.scale/2,s.length*camera.scale,s.width*camera.scale);
-  for(const m of s.modules){if(m.type==='hull')continue;const x=m.x*camera.scale,y=m.y*camera.scale,w=Math.max(3,7*camera.scale/0.14),hh=Math.max(2,5*camera.scale/0.14);ctx.globalAlpha=m.hp>0?1:.2;if(m.type==='engine'){ctx.strokeStyle='#56b6ff';ctx.strokeRect(x-w/2,y-hh/2,w,hh);const a=m.dir||0;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*Math.max(4,w*.7),y+Math.sin(a)*Math.max(4,w*.7));ctx.lineTo(x+Math.cos(a+2.5)*3,y+Math.sin(a+2.5)*3);ctx.moveTo(x+Math.cos(a)*Math.max(4,w*.7),y+Math.sin(a)*Math.max(4,w*.7));ctx.lineTo(x+Math.cos(a-2.5)*3,y+Math.sin(a-2.5)*3);ctx.stroke();if(m.active){ctx.beginPath();ctx.moveTo(x-Math.cos(a)*4,y-Math.sin(a)*4);ctx.lineTo(x-Math.cos(a)*12*(m.output||1),y-Math.sin(a)*12*(m.output||1));ctx.stroke();}}
-    else{ctx.fillStyle=m.type==='gun'?'#ddd':m.type==='armor'?'#777':m.type==='reactor'?'#f4cf63':m.type==='shield'?'#79e0ff':m.type==='laser'?'#ff7c7c':m.type==='missile'?'#d88962':'#aaa';ctx.fillRect(x-w/2,y-hh/2,w,hh);if(['gun','laser','missile'].includes(m.type)){const a=m.mountDir||0;ctx.strokeStyle='#fff';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*Math.max(6,w),y+Math.sin(a)*Math.max(6,w));ctx.stroke()}}}
+  const [sx,sy]=worldToScreen(s.x,s.y),isFocused=cameraMode==='focus'&&s===focusShip();ctx.save();ctx.translate(sx,sy);ctx.rotate(s.angle);ctx.globalAlpha=s.dead?.35:1;ctx.strokeStyle=s.team==='A'?'#d7b96d':'#79b8ff';drawHullFrame(s);
+  for(const m of s.modules){if(m.type!=='hull')drawModule(s,m,isFocused)}
+  if(isFocused){ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-5,0);ctx.lineTo(5,0);ctx.moveTo(0,-5);ctx.lineTo(0,5);ctx.stroke();}
   ctx.restore();ctx.globalAlpha=1;
   if(cameraMode==='fleet'&&Math.max(s.length,s.width)*camera.scale<12){ctx.fillStyle=s.team==='A'?'#d7b96d':'#79b8ff';ctx.beginPath();ctx.arc(sx,sy,5,0,Math.PI*2);ctx.fill();}
-  ctx.fillStyle='#ddd';ctx.font='12px system-ui';ctx.fillText(s.name,sx-55,sy-Math.max(10,s.width*camera.scale/2+8));
+  ctx.fillStyle='#ddd';ctx.font='12px system-ui';ctx.textAlign='left';ctx.textBaseline='alphabetic';ctx.fillText(s.name,sx-55,sy-Math.max(10,s.width*camera.scale/2+9));
 }
-
+function drawFocusTelemetry(){
+  if(cameraMode!=='focus')return;const s=focusShip();if(!s)return;const active=s.modules.filter(m=>m.type==='engine'&&m.hp>0&&m.active);ctx.fillStyle='rgba(8,13,20,.78)';ctx.fillRect(10,10,205,58);ctx.fillStyle='#e8edf4';ctx.font='11px system-ui';ctx.fillText(`ω ${(s.omega*180/Math.PI).toFixed(1)}°/s · heading ${(s.angle*180/Math.PI).toFixed(0)}°`,18,29);ctx.fillText(`engines firing ${active.length} · speed ${Math.hypot(s.vx,s.vy).toFixed(0)} m/s`,18,45);ctx.fillStyle='#9cb0c9';ctx.fillText(s.order||'',18,61);
+}
 function drawRadarContacts(){
   if(cameraMode!=='focus')return;const own=focusShip();if(!own)return;const w=canvas.clientWidth,h=canvas.clientHeight,margin=34;
   for(const s of battle.ships){if(s===own||s.dead)continue;const [sx,sy]=worldToScreen(s.x,s.y);if(sx>margin&&sx<w-margin&&sy>margin&&sy<h-margin)continue;
-    const dx=sx-w/2,dy=sy-h/2,ang=Math.atan2(dy,dx);const rx=w/2-margin,ry=h/2-margin;const t=Math.min(Math.abs(rx/(Math.cos(ang)||1e-6)),Math.abs(ry/(Math.sin(ang)||1e-6)));const ex=w/2+Math.cos(ang)*t,ey=h/2+Math.sin(ang)*t;
+    const dx=sx-w/2,dy=sy-h/2,ang=Math.atan2(dy,dx),rx=w/2-margin,ry=h/2-margin,t=Math.min(Math.abs(rx/(Math.cos(ang)||1e-6)),Math.abs(ry/(Math.sin(ang)||1e-6))),ex=w/2+Math.cos(ang)*t,ey=h/2+Math.sin(ang)*t;
     const range=Math.hypot(s.x-own.x,s.y-own.y),rvx=s.vx-own.vx,rvy=s.vy-own.vy,nx=(s.x-own.x)/(range||1),ny=(s.y-own.y)/(range||1),radial=rvx*nx+rvy*ny;
     ctx.save();ctx.translate(ex,ey);ctx.rotate(ang);ctx.fillStyle=s.team==='A'?'#d7b96d':'#79b8ff';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-7,-6);ctx.lineTo(-7,6);ctx.closePath();ctx.fill();ctx.restore();
-    ctx.fillStyle='#e8edf4';ctx.font='11px system-ui';const label=`${s.name} ${(range/1000).toFixed(1)} km · ${radial<0?'closing':'opening'} ${Math.abs(radial).toFixed(0)} m/s`;const tw=ctx.measureText(label).width;let tx=ex+10,ty=ey-10;if(tx+tw>w-4)tx=ex-tw-12;if(ty<12)ty=ey+18;ctx.fillText(label,tx,ty);
-    ctx.strokeStyle=s.team==='A'?'#d7b96d':'#79b8ff';ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(s.angle)*18,ey+Math.sin(s.angle)*18);ctx.stroke();
+    ctx.fillStyle='#e8edf4';ctx.font='11px system-ui';ctx.textAlign='left';const label=`${s.name} ${(range/1000).toFixed(1)} km · ${radial<0?'closing':'opening'} ${Math.abs(radial).toFixed(0)} m/s`;const tw=ctx.measureText(label).width;let tx=ex+10,ty=ey-10;if(tx+tw>w-4)tx=ex-tw-12;if(ty<12)ty=ey+18;ctx.fillText(label,tx,ty);ctx.strokeStyle=s.team==='A'?'#d7b96d':'#79b8ff';ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+Math.cos(s.angle)*18,ey+Math.sin(s.angle)*18);ctx.stroke();
   }
 }
-
 function render(){
-  updateCamera();ctx.fillStyle='#080d14';ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
-  ctx.strokeStyle='#132033';ctx.lineWidth=1;const grid=250*camera.scale;if(grid>24){for(let x=((canvas.clientWidth/2-camera.x*camera.scale)%grid+grid)%grid;x<canvas.clientWidth;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.clientHeight);ctx.stroke()}for(let y=((canvas.clientHeight/2-camera.y*camera.scale)%grid+grid)%grid;y<canvas.clientHeight;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.clientWidth,y);ctx.stroke()}}
+  updateCamera();ctx.fillStyle='#080d14';ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);ctx.strokeStyle='#132033';ctx.lineWidth=1;const grid=250*camera.scale;if(grid>24){for(let x=((canvas.clientWidth/2-camera.x*camera.scale)%grid+grid)%grid;x<canvas.clientWidth;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.clientHeight);ctx.stroke()}for(let y=((canvas.clientHeight/2-camera.y*camera.scale)%grid+grid)%grid;y<canvas.clientHeight;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.clientWidth,y);ctx.stroke()}}
   for(const p of battle.projectiles){const [x,y]=worldToScreen(p.x,p.y);if(x<0||x>canvas.clientWidth||y<0||y>canvas.clientHeight)continue;ctx.fillStyle='#ffe7a2';ctx.beginPath();ctx.arc(x,y,1.6,0,Math.PI*2);ctx.fill()}
-  battle.ships.forEach(drawShip);drawRadarContacts();
-  const sum=battle.summary();statsEl.innerHTML=sum.ships.map(s=>`<div class="shipstat"><b>${s.name}</b><br>mass ${(s.mass/1000).toFixed(0)} t · speed ${s.speed.toFixed(1)} m/s<br>shots ${s.shots} · hits ${s.hits}<br>${s.modules.filter(m=>m.hp>0).length}/${s.modules.length} modules functional<br><small>${battle.ships.find(x=>x.name===s.name).order}</small></div>`).join('')+`<div><b>T+${sum.time.toFixed(1)} s</b>${sum.winner?` · winner: ${sum.winner}`:''}</div>`;
+  battle.ships.forEach(drawShip);drawRadarContacts();drawFocusTelemetry();
+  const sum=battle.summary();statsEl.innerHTML=sum.ships.map(s=>{const live=battle.ships.find(x=>x.name===s.name);return`<div class="shipstat"><b>${s.name}</b><br>mass ${(s.mass/1000).toFixed(0)} t · speed ${s.speed.toFixed(1)} m/s<br>angular rate ${(live.omega*180/Math.PI).toFixed(1)}°/s · shots ${s.shots} · hits ${s.hits}<br>${s.modules.filter(m=>m.hp>0).length}/${s.modules.length} modules functional<br><small>${live.order}</small></div>`}).join('')+`<div><b>T+${sum.time.toFixed(1)} s</b>${sum.winner?` · winner: ${sum.winner}`:''}</div>`;
   logEl.innerHTML=battle.events.slice(-8).reverse().map(e=>`<div><span>${e.t.toFixed(1)}s</span> ${e.text}</div>`).join('');
 }
-function loop(now){const elapsed=Math.min(.1,(now-last)/1000);last=now;if(!paused&&!battle.winner){let steps=Math.max(1,Math.round(simSpeed*elapsed/G.dt));for(let i=0;i<steps;i++)battle.step(G.dt)}render();requestAnimationFrame(loop)}requestAnimationFrame(loop);
-
+function loop(now){const elapsed=Math.min(.1,(now-last)/1000);last=now;if(!paused&&!battle.winner){const steps=Math.max(1,Math.round(simSpeed*elapsed/G.dt));for(let i=0;i<steps;i++)battle.step(G.dt)}render();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 pauseBtn.onclick=()=>{paused=!paused;pauseBtn.textContent=paused?'Resume':'Pause'};
 $('#reset').onclick=()=>{reset();showTab('battle')};speedEl.oninput=()=>simSpeed=Number(speedEl.value);
 $('#batch').onclick=()=>{let A=0,B=0,D=0,t=0;for(let i=1;i<=100;i++){const b=new Battle(blueprintToShip(designs.A,'A'),blueprintToShip(designs.B,'B'),i);for(let j=0;j<6000&&!b.winner;j++)b.step();const r=b.summary();if(r.winner==='A')A++;else if(r.winner==='B')B++;else D++;t+=r.time}alert(`100 battles\nDesign A: ${A}\nDesign B: ${B}\nDraws: ${D}\nMean duration: ${(t/100).toFixed(1)} s`)};
