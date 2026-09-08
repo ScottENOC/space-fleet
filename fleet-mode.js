@@ -40,11 +40,13 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     s.uid=`${team}${i+1}`;
     s.commandTargetId=null;
     s.targetPriority=[...DEFAULT_PRIORITY];
+    s.ramPolicy=team==='P'?'discretion':null;
     const lane=(i-(team==='P'?(playerShips.length-1)/2:(enemyShips.length-1)/2))*420;
     Object.assign(s,{x:team==='P'?-1500:1500,y:lane,angle:team==='P'?.08:Math.PI+.08,vx:0,vy:0,omega:0,dead:false});
     return s;
   });
   b.projectiles=[];b.events=[];b.winner=null;b.t=0;
+  if(typeof window!=='undefined')window.__fleetBattle=b;
   return b;
 }
 
