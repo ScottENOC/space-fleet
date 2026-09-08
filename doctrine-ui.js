@@ -13,18 +13,23 @@ function applyPreset(id){
   const b=window.__fleetBattle;if(!b)return;
   const ships=selectedPlayerShips(b);
   const d=DOCTRINES[id]||DOCTRINES.balanced;
-  for(const s of ships)applyDoctrine(s,id);
+  for(const s of ships){applyDoctrine(s,id);s.customDoctrineLocked=id!=='balanced'&&id!=='codeRed';}
   b.log(`Player doctrine: ${ships.map(s=>s.name).join(', ')} -> ${d.name}.`);
+}
+function refreshDoctrineSelect(){
+  const sel=document.querySelector('#doctrinePreset');if(!sel)return;
+  const old=sel.value;sel.innerHTML=Object.values(DOCTRINES).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+  if(DOCTRINES[old])sel.value=old;
 }
 
 function installControls(){
   const orders=document.querySelector('.orders');if(!orders||document.querySelector('#doctrinePreset'))return;
   const wrap=document.createElement('div');wrap.className='doctrineControls';
   wrap.innerHTML=`<h2>Captain doctrine</h2>
-    <label>Preset<select id="doctrinePreset"><option value="balanced">Balanced action</option><option value="codeRed">Code Red</option></select></label>
+    <label>Preset<select id="doctrinePreset"></select></label>
     <div class="doctrineButtons"><button id="balancedNow">Balanced</button><button id="codeRedNow">CODE RED</button></div>
-    <p><b>Code Red:</b> shield maintenance/recharge first, then engines, then weapons; reserve power for point defence; engage missiles before fighters; offensive lasers wait for >=95% battery charge.</p>`;
-  orders.prepend(wrap);
+    <p><b>Code Red:</b> shield maintenance/recharge first, then engines, then weapons; reserve power for point defence; engage missiles before fighters; offensive lasers wait for >=95% battery charge. Custom doctrines created in the Doctrine tab appear here too.</p>`;
+  orders.prepend(wrap);refreshDoctrineSelect();
   document.querySelector('#balancedNow').onclick=()=>applyPreset('balanced');
   document.querySelector('#codeRedNow').onclick=()=>applyPreset('codeRed');
   document.querySelector('#doctrinePreset').onchange=e=>applyPreset(e.target.value);
@@ -38,7 +43,8 @@ function powerLine(s){
   const groups=p.groups||{};
   const label=k=>({shieldMaintain:'shield hold',shieldRecharge:'shield recharge',engines:'engines',weapons:'weapons',defence:'point defence',offence:'offence'}[k]||k);
   const active=Object.entries(groups).filter(([,g])=>g.requested>1e3).map(([k,g])=>`${label(k)} ${fmtMW(g.supplied)}`).join(' · ');
-  return `<div class="powercard"><b>${s.name}</b> · ${s.doctrineId==='codeRed'?'CODE RED':'Balanced'}<br>
+  const doctrine=DOCTRINES[s.doctrineId]?.name||s.doctrineId||'Balanced';
+  return `<div class="powercard"><b>${s.name}</b> · ${doctrine}<br>
     generation ${fmtMW(p.generationMW)} · load ${fmtMW(p.demandMW)} · battery ${fmtMW(p.storageMW)}${deficit}<br>
     <small>stored ${storage}${active?` · ${active}`:''}</small></div>`;
 }
@@ -47,7 +53,8 @@ function refreshTelemetry(){
   let host=document.querySelector('#powerReadout');
   if(!host){host=document.createElement('div');host.id='powerReadout';const stats=document.querySelector('#stats');stats?.before(host)}
   if(host)host.innerHTML='<h2>Power</h2>'+b.ships.filter(s=>!s.dead).map(powerLine).join('');
+  refreshDoctrineSelect();
 }
 
 installControls();
-setInterval(refreshTelemetry,200);
+setInterval(refreshTelemetry,250);
