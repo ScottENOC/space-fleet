@@ -21,6 +21,13 @@ export const DOCTRINES={
   }
 };
 
+export function registerDoctrine(d){
+  if(!d?.id)return null;
+  DOCTRINES[d.id]={...d,powerPriority:[...(d.powerPriority||DOCTRINES.balanced.powerPriority)],targetPriority:[...(d.targetPriority||DOCTRINES.balanced.targetPriority)],defencePriority:[...(d.defencePriority||DOCTRINES.balanced.defencePriority)]};
+  return DOCTRINES[d.id];
+}
+export function removeDoctrine(id){if(!['balanced','codeRed'].includes(id))delete DOCTRINES[id];}
+
 export function applyDoctrine(ship,id='balanced'){
   const d=DOCTRINES[id]||DOCTRINES.balanced;
   ship.doctrineId=d.id;
@@ -46,7 +53,7 @@ function dangerNearby(b,s){
 const baseAI=Battle.prototype.ai;
 Battle.prototype.ai=function(s,e){
   if(!s.doctrineId)applyDoctrine(s,'balanced');
-  if(s.team==='E'){
+  if(s.team==='E'&&!s.customDoctrineLocked){
     const threatened=dangerNearby(this,s)||shieldFraction(s)<.4;
     const wanted=threatened?'codeRed':'balanced';
     if(s.doctrineId!==wanted)applyDoctrine(s,wanted);
