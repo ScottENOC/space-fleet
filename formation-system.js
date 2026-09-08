@@ -41,10 +41,10 @@ export function applyFleetDoctrine(b,team,id,applyShipDoctrine){ensureFleetState
 function slotOffsets(b,s){
   const st=b.fleetState?.[s.team],form=FORMATIONS[st?.formation]||FORMATIONS.loose,members=teamShips(b,s.team),flag=members.find(x=>x.uid===st?.flagshipUid);if(!flag||s===flag)return{flag,x:0,y:0,form};
   const escorts=members.filter(x=>x!==flag);
-  if(health(s)<.28){const i=escorts.filter(x=>health(x)<.28).sort((a,c)=>a.uid.localeCompare(c.uid)).indexOf(s);return{flag,x:-form.spacing*(1.3+i*.45),y:(i%2?1:-1)*form.spacing*.22,form};}
+  if(health(s)<.28||s.fallBackRequested){const fallback=escorts.filter(x=>health(x)<.28||x.fallBackRequested).sort((a,c)=>a.uid.localeCompare(c.uid));const i=Math.max(0,fallback.indexOf(s));return{flag,x:-form.spacing*(1.3+i*.45),y:(i%2?1:-1)*form.spacing*.22,form};}
   if(form.id==='ramming'){const ordered=[...escorts].sort((a,c)=>(hasRam(c)?1:0)-(hasRam(a)?1:0)||shipSize(a)-shipSize(c)),i=ordered.indexOf(s),front=hasRam(s)||i===0;return{flag,x:front?form.spacing*(1+i*.35):-form.spacing*.65,y:(i%2?1:-1)*form.spacing*.42,form};}
-  const healthy=escorts.filter(x=>health(x)>=.28).sort((a,c)=>{const score=x=>-shipSize(x)+accel(x)*1200;return score(c)-score(a);});
-  const i=healthy.indexOf(s),side=i%2===0?-1:1,rank=Math.floor(i/2)+1;
+  const healthy=escorts.filter(x=>health(x)>=.28&&!x.fallBackRequested).sort((a,c)=>{const score=x=>-shipSize(x)+accel(x)*1200;return score(c)-score(a);});
+  const i=Math.max(0,healthy.indexOf(s)),side=i%2===0?-1:1,rank=Math.floor(i/2)+1;
   if(form.id==='broadside')return{flag,x:-form.spacing*.08*rank,y:side*form.spacing*rank,form};
   const outside=1+Math.max(0,(shipSize(flag)-shipSize(s))/Math.max(1,shipSize(flag)))*.35+clamp(accel(s)-accel(flag),0,.25)*.8;
   return{flag,x:-form.spacing*.25*rank,y:side*form.spacing*rank*outside,form};
@@ -58,12 +58,12 @@ Battle.prototype.ai=function(s,e){
   if(!e||e.dead||s.dead||s.ramOrder==='ram'||s.ramIntent)return;
   const slot=slotOffsets(this,s);if(!slot.flag)return;
   const target=worldSlot(slot.flag,slot.x,slot.y),dx=target.x-s.x,dy=target.y-s.y,d=Math.hypot(dx,dy),mode=discipline(s);
-  s.formationId=slot.form.id;s.formationDistance=d;if(s.isFlagship)return;
+  s.formationId=slot.form.id;s.formationDistance=d;s.formationTarget=target;if(s.isFlagship)return;
   const tolerance=slot.form.tolerance*(mode==='strict'?.72:mode==='independent'?1.9:1);
   if(d>tolerance){
     const course=Math.atan2(dy,dx),baseWeight=clamp((d-tolerance)/(slot.form.spacing*1.6),.18,.82),weight=clamp(baseWeight*(mode==='strict'?1.28:mode==='independent'?.48:1),.08,.95);
     s.desiredAngle=lerpAngle(s.desiredAngle,course,weight);s.throttle=Math.max(s.throttle||0,clamp(d/(slot.form.spacing*(mode==='strict'?1.45:2.0)),mode==='independent'?.10:.18,mode==='strict'?1:.88));
-    s.order=`${s.order||'Engage'} · reform ${slot.form.name}`;
+    s.order=`${s.order||'Engage'} · ${s.fallBackRequested?'fall back':'reform '+slot.form.name}`;
   }else if(slot.form.id==='broadside'&&mode!=='independent')s.desiredAngle=lerpAngle(s.desiredAngle,slot.flag.angle,mode==='strict'?.42:.28);
 };
 
