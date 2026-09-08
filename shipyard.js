@@ -21,21 +21,43 @@ for(const h of Object.values(HULLS)){h.cells=cellsFromRows(h.rows);h.width=h.row
 export const MODULES={
  bridge:{name:'Bridge',type:'bridge',size:[1,1],mass:7,hp:140,colour:'#d9e1ec'},
  reactor:{name:'Reactor',type:'reactor',size:[2,2],mass:22,hp:180,power:34e6,colour:'#f4cf63'},
- engine:{name:'Main engine',type:'engine',size:[2,1],mass:12,hp:150,force:1.8e6,powerUse:5e6,directional:true,colour:'#56b6ff'},
- thruster:{name:'Manoeuvre thruster',type:'engine',size:[1,1],mass:6,hp:95,force:.72e6,powerUse:2.2e6,directional:true,colour:'#78c9ff'},
- gun:{name:'Naval gun',type:'gun',size:[2,1],mass:8,hp:120,powerUse:.2e6,ammo:100,projectileMass:18,muzzle:1300,damage:95,cooldown:1.25,penetration:1,directional:true,colour:'#dedede'},
- laser:{name:'Laser',type:'laser',size:[1,1],mass:7,hp:105,powerUse:4e6,damage:60,cooldown:.7,range:4800,penetration:.7,directional:true,colour:'#ff7c7c'},
+ engine:{name:'Main engine',type:'engine',size:[2,1],mass:12,hp:150,force:1.8e6,powerUse:5e6,directional:true,clearance:'exhaust',colour:'#56b6ff'},
+ thruster:{name:'Manoeuvre thruster',type:'engine',size:[1,1],mass:6,hp:95,force:.72e6,powerUse:2.2e6,directional:true,clearance:'exhaust',colour:'#78c9ff'},
+ gun:{name:'Naval gun',type:'gun',size:[2,1],mass:8,hp:120,powerUse:.2e6,ammo:100,projectileMass:18,muzzle:1300,damage:95,cooldown:1.25,penetration:1,directional:true,clearance:'muzzle',colour:'#dedede'},
+ laser:{name:'Laser',type:'laser',size:[1,1],mass:7,hp:105,powerUse:4e6,damage:60,cooldown:.7,range:4800,penetration:.7,directional:true,clearance:'muzzle',colour:'#ff7c7c'},
  shield:{name:'Shield generator',type:'shield',size:[2,2],mass:14,hp:130,powerUse:6e6,capacity:500,recharge:45,colour:'#79e0ff'},
  armor:{name:'Armour block',type:'armor',size:[2,1],mass:18,hp:420,absorb:.68,colour:'#777'},
  radiator:{name:'Radiator',type:'radiator',size:[2,1],mass:8,hp:120,colour:'#a895c7'},
- missile:{name:'Missile rack',type:'missile',size:[2,1],mass:10,hp:110,powerUse:.4e6,ammo:12,damage:220,cooldown:4,directional:true,colour:'#d88962'}
+ missile:{name:'Missile rack',type:'missile',size:[2,1],mass:10,hp:110,powerUse:.4e6,ammo:12,damage:220,cooldown:4,directional:true,clearance:'muzzle',colour:'#d88962'}
 };
 
 export function emptyBlueprint(hullId='line',name='Untitled frigate',ai=null){return{name,hullId,ai:ai||HULLS[hullId].ai,targetPriority:[...DEFAULT_TARGET_PRIORITY],placements:[]}}
 export function cloneBlueprint(bp){return JSON.parse(JSON.stringify(bp))}
 function rotatedSize(spec,rot){const [w,h]=spec.size;return rot%2?[h,w]:[w,h]}
 export function footprint(placement){const spec=MODULES[placement.moduleId],[w,h]=rotatedSize(spec,placement.rot||0),out=[];for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)out.push([placement.x+xx,placement.y+yy]);return out}
-export function canPlace(bp,moduleId,x,y,rot=0,ignoreIndex=-1){const hull=HULLS[bp.hullId],valid=new Set(hull.cells.map(c=>c.join(','))),occupied=new Set();bp.placements.forEach((p,i)=>{if(i!==ignoreIndex)for(const c of footprint(p))occupied.add(c.join(','))});return footprint({moduleId,x,y,rot}).every(c=>valid.has(c.join(','))&&!occupied.has(c.join(',')))}
+function dirForRot(rot){return [[1,0],[0,1],[-1,0],[0,-1]][((rot%4)+4)%4]}
+export function clearanceCells(bp,placement){
+ const spec=MODULES[placement.moduleId];if(!spec?.clearance)return[];
+ const hull=HULLS[bp.hullId],valid=new Set(hull.cells.map(c=>c.join(','))),own=footprint(placement),ownSet=new Set(own.map(c=>c.join(',')));
+ let [dx,dy]=dirForRot(placement.rot||0);if(spec.clearance==='exhaust'){dx=-dx;dy=-dy}
+ const out=[],seen=new Set();
+ for(const [cx,cy] of own){
+   if(ownSet.has(`${cx+dx},${cy+dy}`))continue;
+   let x=cx+dx,y=cy+dy;
+   while(valid.has(`${x},${y}`)){
+     const k=`${x},${y}`;if(!seen.has(k)){seen.add(k);out.push([x,y])}
+     x+=dx;y+=dy;
+   }
+ }
+ return out;
+}
+function occupiedCells(bp,ignoreIndex=-1){const out=new Set();bp.placements.forEach((p,i)=>{if(i!==ignoreIndex)for(const c of footprint(p))out.add(c.join(','))});return out}
+function reservedClearance(bp,ignoreIndex=-1){const out=new Set();bp.placements.forEach((p,i)=>{if(i!==ignoreIndex)for(const c of clearanceCells(bp,p))out.add(c.join(','))});return out}
+export function canPlace(bp,moduleId,x,y,rot=0,ignoreIndex=-1){
+ const hull=HULLS[bp.hullId],valid=new Set(hull.cells.map(c=>c.join(','))),occupied=occupiedCells(bp,ignoreIndex),reserved=reservedClearance(bp,ignoreIndex),test={moduleId,x,y,rot};
+ const fp=footprint(test);if(!fp.every(c=>valid.has(c.join(','))&&!occupied.has(c.join(','))&&!reserved.has(c.join(','))))return false;
+ return clearanceCells(bp,test).every(c=>!occupied.has(c.join(',')));
+}
 export function placeModule(bp,moduleId,x,y,rot=0){if(!canPlace(bp,moduleId,x,y,rot))return false;bp.placements.push({moduleId,x,y,rot:rot%4});return true}
 export function removeAt(bp,x,y){const i=bp.placements.findIndex(p=>footprint(p).some(c=>c[0]===x&&c[1]===y));if(i<0)return false;bp.placements.splice(i,1);return true}
 function cellCentre(hull,p){const cells=footprint(p),cx=cells.reduce((a,c)=>a+c[0]+.5,0)/cells.length,cy=cells.reduce((a,c)=>a+c[1]+.5,0)/cells.length;return[(cx-hull.width/2)*CELL_METRES,(cy-hull.height/2)*CELL_METRES]}
@@ -43,7 +65,7 @@ function directionRadians(rot){return(rot%4)*Math.PI/2}
 
 export function blueprintToShip(bp,team='A'){
  const hull=HULLS[bp.hullId],modules=[createSimModule('hull',0,0,{id:'keel',mass:hull.frameMass,hp:hull.frameHp})];
- bp.placements.forEach((p,i)=>{const spec=MODULES[p.moduleId],[x,y]=cellCentre(hull,p),dir=directionRadians(p.rot||0),opts={...spec,id:`${p.moduleId}-${i+1}`,gridCells:footprint(p).map(c=>[...c])};delete opts.name;delete opts.type;delete opts.size;delete opts.directional;delete opts.colour;if(spec.type==='engine')opts.dir=dir;if(['gun','laser','missile'].includes(spec.type))opts.mountDir=dir;modules.push(createSimModule(spec.type,x,y,opts))});
+ bp.placements.forEach((p,i)=>{const spec=MODULES[p.moduleId],[x,y]=cellCentre(hull,p),dir=directionRadians(p.rot||0),opts={...spec,id:`${p.moduleId}-${i+1}`,gridCells:footprint(p).map(c=>[...c])};delete opts.name;delete opts.type;delete opts.size;delete opts.directional;delete opts.colour;delete opts.clearance;if(spec.type==='engine')opts.dir=dir;if(['gun','laser','missile'].includes(spec.type))opts.mountDir=dir;modules.push(createSimModule(spec.type,x,y,opts))});
  return shipFromModules(bp.name,team,modules,{length:hull.width*CELL_METRES,width:hull.height*CELL_METRES,ai:bp.ai||hull.ai,targetPriority:bp.targetPriority||DEFAULT_TARGET_PRIORITY,grid:{cellMetres:CELL_METRES,width:hull.width,height:hull.height,validCells:hull.cells.map(c=>[...c])}})
 }
 export function designStats(bp){const hull=HULLS[bp.hullId];let mass=hull.frameMass,power=0,maxPowerUse=0,thrust=0,weapons=0;for(const p of bp.placements){const m=MODULES[p.moduleId];mass+=m.mass||0;if(m.power)power+=m.power;if(m.powerUse)maxPowerUse+=m.powerUse;if(m.force)thrust+=m.force;if(['gun','laser','missile'].includes(m.type))weapons++}return{mass,power,maxPowerUse,thrust,weapons,cellsUsed:bp.placements.reduce((a,p)=>a+footprint(p).length,0),cellsTotal:hull.cells.length}}
