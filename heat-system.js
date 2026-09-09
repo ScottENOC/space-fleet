@@ -51,13 +51,8 @@ function weaponHeatMW(s,dt){
  }
  return watts/1e6;
 }
-function launchBayHeatMW(s,dt){
- let mj=0;
- for(const m of s.modules){
-   if(m.type!=='launchBay'||m.hp<=0)continue;
-   if((m._thermalPulseUntil||0)>=(s._battleTimeForHeat||0))mj+=(m.powerUse||0)/1e6*HEAT_FRACTION.launchBay*dt;
- }
- return dt>0?mj/dt:0;
+function launchBayHeatMW(s){
+ return s.modules.filter(m=>m.type==='launchBay'&&m.hp>0&&m._powerPaidBus===s.powerBus).reduce((n,m)=>n+(m.powerUse||0)*HEAT_FRACTION.launchBay,0)/1e6;
 }
 function wasteHeatMW(s,dt){
  const p=s.powerState||{},g=p.groups||{};
@@ -70,8 +65,8 @@ function wasteHeatMW(s,dt){
  const sensors=(g.sensors?.supplied||0)/1e6*HEAT_FRACTION.sensor;
  const storage=(g.storageRecharge?.supplied||0)/1e6*HEAT_FRACTION.storageCharge;
  const weapons=weaponHeatMW(s,dt);
- const launch=launchBayHeatMW(s,dt);
- const accountedW=(g.engines?.supplied||0)+(g.shieldMaintain?.supplied||0)+(g.shieldRecharge?.supplied||0)+(g.weapons?.supplied||0)+(g.sensors?.supplied||0)+(g.storageRecharge?.supplied||0);
+ const launch=launchBayHeatMW(s);
+ const accountedW=(g.engines?.supplied||0)+(g.shieldMaintain?.supplied||0)+(g.shieldRecharge?.supplied||0)+(g.weapons?.supplied||0)+(g.sensors?.supplied||0)+(g.storageRecharge?.supplied||0)+(g.offence?.supplied||0);
  const misc=Math.max(0,(p.demandMW||0)-accountedW)/1e6*HEAT_FRACTION.misc;
  return reactor+engines+shields+sensors+storage+weapons+launch+misc;
 }
@@ -88,7 +83,7 @@ function applyOverheatDamage(s,dt,fraction,threshold){
 }
 
 Battle.prototype.applySystems=function(s,dt){
- initialise(s);s._battleTimeForHeat=this.t||0;
+ initialise(s);
  const capBefore=capacityMJ(s),fracBefore=s.heatMJ/capBefore,policy=policyFor(s);
  const temporarilyDisabled=[],savedThrottle=s.throttle;
  if(fracBefore>=policy.laserCut){
