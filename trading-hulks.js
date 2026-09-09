@@ -7,8 +7,6 @@ function tradeHull(id,name,role,widths,frameMass,frameHp,price){
  h.cells=cellsFromRows(rows);h.width=rows[0].length;h.height=rows.length;h.cellCount=h.cells.length;return h;
 }
 
-// Large, broad, cheap civilian frames. Cell counts sit around the largest destroyer,
-// cruiser and battleship bands but their frame structure is intentionally far weaker.
 HULLS.trader_mule ??=tradeHull('trader_mule','Mule-class trading hulk','Regional bulk freighter',[5,7,9,11,11,11,11,9,7,5],58,470,900);
 HULLS.trader_caravan ??=tradeHull('trader_caravan','Caravan-class trading hulk','Inter-system merchantman',[7,9,11,13,15,15,15,15,15,13,11,9,7],92,720,1800);
 HULLS.trader_leviathan ??=tradeHull('trader_leviathan','Galleon-class trading hulk','Heavy bulk carrier',[9,11,13,15,17,19,19,19,19,19,19,17,15,13,11,9],138,1060,3200);
@@ -16,13 +14,12 @@ HULLS.trader_leviathan ??=tradeHull('trader_leviathan','Galleon-class trading hu
 MODULES.cargo_1 ??={name:'Cargo hold · 12 units',type:'cargo',size:[1,1],mass:2,hp:48,cargoCapacity:12,colour:'#b88c5a'};
 MODULES.cargo_2 ??={name:'Bulk cargo hold · 60 units',type:'cargo',size:[2,2],mass:7,hp:145,cargoCapacity:60,colour:'#b47f48'};
 MODULES.cargo_3 ??={name:'Heavy cargo hold · 150 units',type:'cargo',size:[3,3],mass:13,hp:270,cargoCapacity:150,colour:'#a97038'};
+if(typeof window!=='undefined')window.__shipyardHulls=HULLS;
 
 function firstFit(bp,moduleId,rot=0){const h=HULLS[bp.hullId];for(let y=0;y<h.height;y++)for(let x=0;x<h.width;x++)if(placeModule(bp,moduleId,x,y,rot))return true;return false}
 export function makeTradingPremade(hullId='trader_mule'){
  const h=HULLS[hullId];if(!h?.civilianHull)throw new Error('Trading Hulk hull required');
  const bp=emptyBlueprint(hullId,h.name,'pursuit');
- // Civilian baseline: command, reactor, shields, distributed engines, two defensive guns,
- // then pack the remaining volume with cargo. Clearance rules still apply.
  firstFit(bp,'bridge_2');firstFit(bp,h.cellCount>200?'reactor_3':'reactor_2');
  if(h.cellCount>120)firstFit(bp,'shield_2');
  firstFit(bp,h.cellCount>180?'engine_4':'engine_3',1);firstFit(bp,h.cellCount>180?'engine_4':'engine_3',3);
