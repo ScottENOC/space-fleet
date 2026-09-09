@@ -1,5 +1,5 @@
 import {Battle,initialiseShip} from './sim.js';
-import {activePlayerShips,instantiateCampaignShip} from './campaign-core.js';
+import {activePlayerShips,instantiateCampaignShip,applySavedState} from './campaign-core.js';
 
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
@@ -32,9 +32,10 @@ Battle.prototype.checkDeaths=function(){
 };
 
 export function createFleetBattle(playerShips,enemyShips,seed=1){
+  let campaignEntries=null;
   if(typeof window!=='undefined'&&window.__campaignActive){
     const persistent=activePlayerShips();
-    if(persistent.length)playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));
+    if(persistent.length){campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));}
   }
   if(!playerShips.length||!enemyShips.length)throw new Error('Each side needs at least one ship.');
   const b=new Battle(playerShips[0],enemyShips[0],seed);
@@ -42,6 +43,7 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
   b.ships=all.map(({s,team,i})=>{
     s.team=team;
     initialiseShip(s);
+    if(team==='P'&&campaignEntries?.[i])applySavedState(s,campaignEntries[i]);
     s.uid=`${team}${i+1}`;
     s.commandTargetId=null;
     s.targetPriority=[...DEFAULT_PRIORITY];
