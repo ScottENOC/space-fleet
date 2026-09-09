@@ -27,25 +27,17 @@ export function makePremade(hullId){
   placeMirrorPair(b,engine,3,3,'rear');if(n>70)placeMirrorPair(b,engine,3,3,'rear');
   if(h.ai==='broadside'){placeMirrorPair(b,gun,2,0,'centre');if(n>120)placeMirrorPair(b,gun,2,0,'front')}else{placeMirrorPair(b,gun,3,3,'front');if(n>120)placeMirrorPair(b,gun,3,3,'front')}
 
-  // Small frigates are intentionally not miniature everything-ships. Integrated hull
-  // cooling covers normal operations; dedicated radiators are only added for heat-heavy designs.
-  if(n<=20){
-    placeMirrorPair(b,missile,3,3,'front');
-  }else if(n<=32){
-    placeMirrorPair(b,missile,3,3,'front');
-    placeOne(b,laser,3,'front');
-    placeOne(b,'radiator_1',0,'rear');
-  }else{
-    placeMirrorPair(b,missile,3,3,'front');
-    placeMirrorPair(b,laser,3,3,'front');
-    if(n>55)placeMirrorPair(b,radiator,0,0,'rear');
-  }
+  if(n<=20){placeMirrorPair(b,missile,3,3,'front')}
+  else if(n<=32){placeMirrorPair(b,missile,3,3,'front');placeOne(b,laser,3,'front');placeOne(b,'radiator_1',0,'rear')}
+  else{placeMirrorPair(b,missile,3,3,'front');placeMirrorPair(b,laser,3,3,'front');if(n>55)placeMirrorPair(b,radiator,0,0,'rear')}
 
   if(carrier){
     const hangar=n>340?'hangar_3':n>250?'hangar_2':'hangar_1';
     const bay=n>340?'launch_bay_3':n>250?'launch_bay_2':'launch_bay_1';
+    const marines=n>340?'marine_3':n>250?'marine_2':'marine_1';
     placeMirrorPair(b,hangar,0,0,'centre');
     placeMirrorPair(b,bay,3,3,'rear');
+    placeOne(b,marines,0,'centre');
     if(n>340){placeMirrorPair(b,hangar,0,0,'centre');placeMirrorPair(b,bay,3,3,'rear')}
   }
   fillMirrorArmour(b,armour);return b;
