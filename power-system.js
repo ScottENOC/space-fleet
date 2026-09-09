@@ -34,7 +34,7 @@ function storageState(s){
 function beginBus(s,dt){
   const generationMW=alive(s,'reactor').reduce((n,m)=>n+(m.power||0)*health(m),0);
   const st=storageState(s);
-  return{s,dt,generationMW,genRemaining:generationMW,storagePowerRemaining:st.dischargeMW,storageMW:0,usedMW:0,requestedMW:0,unmetMW:0,groups:{}};
+  return{s,dt,generationMW,genRemaining:generationMW,storagePowerRemaining:st.dischargeMW,storageMW:0,usedMW:0,requestedMW:0,unmetMW:0,groups:{},defenceReserveMW:0};
 }
 function drawStorage(bus,mw){
   let need=Math.min(mw,bus.storagePowerRemaining),drawn=0;
@@ -77,6 +77,13 @@ function weaponDemandAfter(s,before,bus){
     if(fired)demand+=m.powerUse||0;
   }return demand;
 }
+function defenceThreatNearby(battle,s){
+  return (battle.ordnance||[]).some(o=>o.team!==s.team&&o.hp>0&&['missile','fighter'].includes(o.kind)&&Math.hypot(o.x-s.x,o.y-s.y)<3200);
+}
+function activeDefenceReserve(battle,s,bus){
+  if(!defenceThreatNearby(battle,s))return 0;
+  return Math.min(s.reserveDefenceMW||0,availablePower(bus));
+}
 function shieldMaintain(s,bus){
   for(const sh of alive(s,'shield')){
     if((sh.charge||0)<=0)continue;
@@ -109,14 +116,32 @@ function runEngines(s,bus,turnCmd){
     s.vx+=dx*F/s.mass*bus.dt;s.vy+=dy*F/s.mass*bus.dt;s.omega+=cross(rx,ry,dx*F,dy*F)/s.inertia*bus.dt;
   }
 }
+function describeWeaponStatus(battle,s,availableBefore,demand){
+  const e=battle.enemy(s),weapons=s.modules.filter(m=>['gun','laser','missile'].includes(m.type)&&m.hp>0&&!m.disabled);
+  if(!weapons.length)return'no operational ship weapons';
+  if(demand>0)return'firing';
+  if(!e)return'no hostile target';
+  const usableAmmo=weapons.some(m=>m.type==='laser'||!Number.isFinite(m.ammo)||m.ammo>0);
+  if(!usableAmmo)return'ammunition depleted';
+  const bearing=Math.atan2(e.y-s.y,e.x-s.x);
+  const arcOpen=weapons.some(m=>Math.abs(wrap(bearing-(s.angle+(m.mountDir||0))))<=(m.arc||Math.PI/12));
+  if(!arcOpen)return'target outside weapon arcs';
+  const ready=weapons.filter(m=>(m.cooldownLeft||0)<=0&&(m.type==='laser'||!Number.isFinite(m.ammo)||m.ammo>0));
+  if(!ready.length)return'weapons cycling';
+  const minNeed=Math.min(...ready.map(m=>m.powerUse||0));
+  if(availableBefore+1<minNeed)return'insufficient instantaneous power';
+  return'seeking firing solution';
+}
 function runWeapons(battle,s,bus){
   const st=storageState(s),threshold=s.laserMinStorageFraction||0,disabled=[];
   if(st.fraction<threshold){for(const m of s.modules)if(m.type==='laser'&&m.hp>0&&!m.disabled){m.disabled=true;disabled.push(m)}}
-  const reserve=Math.min(s.reserveDefenceMW||0,availablePower(bus));
+  const reserve=activeDefenceReserve(battle,s,bus);bus.defenceReserveMW=reserve;
   const before=weaponSnapshot(s),available=Math.max(0,availablePower(bus)-reserve);
   s._powerContext='offence';
   try{battle.fireWeapons(s,battle.enemy(s),available)}finally{s._powerContext=null;for(const m of disabled)m.disabled=false}
-  drawPower(bus,weaponDemandAfter(s,before,bus),'weapons',reserve);
+  const demand=weaponDemandAfter(s,before,bus);
+  drawPower(bus,demand,'weapons',reserve);
+  s.weaponStatus=describeWeaponStatus(battle,s,available,demand);
 }
 
 Battle.prototype.applySystems=function(s,dt){
@@ -124,7 +149,8 @@ Battle.prototype.applySystems=function(s,dt){
   for(const m of s.modules){m.active=false;m.output=0;m.cooldownLeft=Math.max(0,(m.cooldownLeft||0)-dt)}
   const bus=beginBus(s,dt);s.powerBus=bus;
   s.requestPower=(mw,kind=s._powerContext||'other')=>{
-    const reserve=kind==='offence'?(s.reserveDefenceMW||0):0;
+    const reserve=kind==='offence'?activeDefenceReserve(this,s,bus):0;
+    bus.defenceReserveMW=Math.max(bus.defenceReserveMW||0,reserve);
     return drawPower(bus,mw,kind,reserve)>=.999;
   };
   const angleErr=wrap(s.desiredAngle-s.angle),desiredOmega=clamp(angleErr*.72,-.42,.42),omegaErr=desiredOmega-s.omega,turnCmd=clamp(omegaErr*3.4,-1,1);
@@ -143,10 +169,10 @@ Battle.prototype.applySystems=function(s,dt){
 
   s.x+=s.vx*dt;s.y+=s.vy*dt;s.angle=wrap(s.angle+s.omega*dt);
   const st=storageState(s);
-  s.powerState={generationMW:bus.generationMW,demandMW:bus.usedMW,requestedMW:bus.requestedMW,unmetMW:bus.unmetMW,storageMW:bus.storageMW,storedMWh:st.mwh,maxMWh:st.maxMWh,storageFraction:st.fraction,groups:bus.groups,priority:[...(s.powerPriority||DEFAULT_PRIORITY)]};
+  s.powerState={generationMW:bus.generationMW,demandMW:bus.usedMW,requestedMW:bus.requestedMW,unmetMW:bus.unmetMW,storageMW:bus.storageMW,storedMWh:st.mwh,maxMWh:st.maxMWh,storageFraction:st.fraction,groups:bus.groups,priority:[...(s.powerPriority||DEFAULT_PRIORITY)],defenceReserveMW:bus.defenceReserveMW||0,weaponStatus:s.weaponStatus||''};
 };
 
 export function getPowerState(s){
   if(s.powerState)return s.powerState;
-  const st=storageState(s);return{generationMW:0,demandMW:0,requestedMW:0,unmetMW:0,storageMW:0,storedMWh:st.mwh,maxMWh:st.maxMWh,storageFraction:st.fraction,groups:{},priority:[...(s.powerPriority||DEFAULT_PRIORITY)]};
+  const st=storageState(s);return{generationMW:0,demandMW:0,requestedMW:0,unmetMW:0,storageMW:0,storedMWh:st.mwh,maxMWh:st.maxMWh,storageFraction:st.fraction,groups:{},priority:[...(s.powerPriority||DEFAULT_PRIORITY)],defenceReserveMW:0,weaponStatus:s.weaponStatus||''};
 }
