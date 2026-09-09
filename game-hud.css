@@ -1,0 +1,43 @@
+html,body{width:100%;height:100%;overflow:hidden;background:#050911}body>header,.tabs{display:none!important}
+:root{--hud-bg:rgba(7,13,22,.76);--hud-bg-strong:rgba(8,14,24,.92);--hud-border:rgba(126,166,207,.34);--hud-text:#eaf2fb;--hud-muted:#91a7bd;--hud-accent:#73b6df;--hud-danger:#df7171;--hud-ok:#79c69b}
+#battle.active{display:block!important;position:fixed;inset:0;width:100vw;height:100dvh;z-index:20;background:#03070d;overflow:hidden}
+#battle.active>.battle{position:absolute;inset:0;width:100%;height:100%;display:block;background:#03070d}
+#battle.active canvas#space{position:absolute;inset:0;width:100%;height:100%;min-height:100%;display:block}
+#battle.active .cameraBar,#battle.active>aside{display:none!important}
+.battleHud{display:none;position:fixed;inset:0;z-index:40;pointer-events:none;color:var(--hud-text);font:13px system-ui,-apple-system,sans-serif}
+#battle.active~.battleHud,.battleHud.active{display:block}
+.hudPanel{pointer-events:auto;background:linear-gradient(180deg,rgba(14,24,38,.84),rgba(7,13,22,.72));border:1px solid var(--hud-border);box-shadow:0 8px 28px rgba(0,0,0,.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:10px;color:var(--hud-text)}
+.hudIconButton,.hudToggle{pointer-events:auto;border:1px solid var(--hud-border);background:rgba(9,17,29,.76);color:var(--hud-text);border-radius:9px;padding:9px 11px;box-shadow:0 4px 18px rgba(0,0,0,.25);backdrop-filter:blur(8px);font-weight:650}
+#hudTopLeft{position:absolute;left:12px;top:12px;display:flex;gap:8px;align-items:flex-start}
+#hudTopRight{position:absolute;right:12px;top:12px;display:flex;gap:8px;align-items:flex-start}
+.hudPopover{position:absolute;top:44px;min-width:260px;max-width:min(360px,calc(100vw - 24px));max-height:70vh;overflow:auto;padding:10px;display:none}
+.hudPopover.open{display:block}
+#hudOrdersWrap .hudPopover{left:0}#hudDoctrineWrap .hudPopover{right:0}
+#hudOrdersWrap .orders{display:block!important;margin:0;padding:0;border:0;background:transparent}
+#hudOrdersWrap .orders>h2,#hudOrdersWrap .orders>p{display:none}
+#hudOrdersWrap .orders label{display:block;margin:7px 0;color:#bbcad9}
+#hudOrdersWrap .orders select,#hudOrdersWrap .orders button{width:100%;margin-top:3px}
+#hudDoctrineWrap .doctrineControls{display:block!important;margin:0;padding:0;border:0;background:transparent}
+#hudDoctrineWrap .doctrineControls h2{display:none}#hudDoctrineWrap .doctrineControls p{font-size:11px;line-height:1.35;color:var(--hud-muted)}
+#hudDoctrineWrap .doctrineButtons{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#hudTraffic{position:absolute;right:12px;bottom:96px;width:min(390px,38vw);height:min(330px,42vh);padding:0;overflow:hidden;display:flex;flex-direction:column}
+#hudTraffic .crewPanel{display:flex!important;flex-direction:column;min-height:0;height:100%;margin:0;padding:10px}
+#hudTraffic .crewHead{flex:0 0 auto;margin-bottom:5px}#hudTraffic .crewHead h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:#c8d7e7}
+#hudTraffic #crewInbox{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:3px;scrollbar-width:thin}
+#hudTraffic .crewRosterWrap{display:none}
+#hudTraffic .crewReport{background:rgba(12,22,35,.72);margin:5px 0;padding:7px 8px;border-radius:6px;border-top:0;border-right:0;border-bottom:0}
+#hudTraffic .crewReport.closed{opacity:.62}.crewReport p{font-size:11.5px!important;line-height:1.32!important;margin:5px 0!important}.reportMeta b{font-size:12px!important}.reportMeta span{font-size:10px!important}.requestLine{font-size:11px!important}.requestActions button{padding:5px 7px}
+#hudShipInfo{position:absolute;left:12px;bottom:96px;width:min(330px,32vw);min-height:132px;padding:11px 12px}
+.focusName{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}.focusName b{font-size:15px}.focusName span{font-size:10px;color:var(--hud-muted);text-transform:uppercase;letter-spacing:.07em}.focusBars{display:grid;gap:5px;margin-bottom:8px}.focusBar{display:grid;grid-template-columns:58px 1fr 38px;gap:6px;align-items:center;font-size:10px;color:#aebfd0}.barTrack{height:5px;background:rgba(255,255,255,.11);border-radius:5px;overflow:hidden}.barFill{height:100%;background:var(--hud-accent)}.barFill.healthLow{background:var(--hud-danger)}.focusGrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11px}.focusGrid span{color:var(--hud-muted)}.focusStatus{grid-column:1/-1;margin-top:4px;color:#cad8e7;font-size:11px}
+#hudFleetStrip{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);height:76px;max-width:calc(100vw - 24px);display:flex;gap:7px;align-items:stretch;padding:7px;overflow-x:auto;overflow-y:hidden}
+.fleetChip{position:relative;width:96px;min-width:96px;height:60px;padding:4px 5px;border:1px solid rgba(126,166,207,.25);background:rgba(12,20,32,.72);border-radius:7px;color:#dfeaf5;display:grid;grid-template-columns:44px 1fr;grid-template-rows:1fr auto;gap:2px;align-items:center;text-align:left;overflow:hidden}.fleetChip.focused{outline:2px solid rgba(115,182,223,.86);background:rgba(20,38,56,.9)}.fleetChip.dead{opacity:.42}.fleetChip.flashHit{animation:hudHit .3s ease}.fleetChip.flashFire{box-shadow:inset 0 0 16px rgba(255,224,140,.42)}@keyframes hudHit{0%,100%{background:rgba(12,20,32,.72)}50%{background:rgba(128,35,35,.9)}}
+.fleetSilhouette{width:44px;height:42px;grid-row:1/3}.fleetChipText{font-size:10px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fleetChipText b{display:block;font-size:10px}.fleetMiniBar{height:3px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}.fleetMiniBar i{display:block;height:100%;background:#78c6a0}.fleetViewChip{width:70px;min-width:70px;display:grid;place-items:center;text-align:center;font-size:10px}
+#globalMenuButton{position:fixed;z-index:80;right:12px;top:12px;display:none}.nonBattleMenu{display:block!important}
+#gameMenuBackdrop,#titleScreen,#battleResultBackdrop{position:fixed;inset:0;z-index:100;background:rgba(2,6,11,.76);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);display:none;place-items:center;padding:18px}#gameMenuBackdrop.open,#titleScreen.open,#battleResultBackdrop.open{display:grid}
+.menuCard,.titleCard,.resultCard{width:min(440px,94vw);padding:24px;background:linear-gradient(180deg,rgba(18,30,46,.97),rgba(8,15,25,.98));border:1px solid rgba(132,172,212,.38);border-radius:14px;box-shadow:0 22px 70px rgba(0,0,0,.5)}
+.titleCard{text-align:center;padding:36px 28px}.titleMark{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#7da8cd;margin-bottom:12px}.titleCard h1{font-size:30px;font-weight:550;letter-spacing:.06em;margin:0 0 26px}.titleActions,.menuActions,.resultActions{display:grid;gap:9px}.titleActions button,.menuActions button,.resultActions button{padding:12px 14px;font-size:14px}.menuCard h2,.resultCard h2{font-size:20px;margin:0 0 14px}.resultSummary{color:#aebfd0;margin:0 0 16px;line-height:1.5}.resultEvents{max-height:180px;overflow:auto;border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);padding:8px 0;margin:12px 0;color:#9fb0c1;font-size:11px}.resultEvents div{padding:3px 0}
+#skirmishLaunch{position:fixed;right:18px;bottom:18px;z-index:30;padding:12px 18px;font-weight:700;box-shadow:0 9px 30px rgba(0,0,0,.35)}
+body.ui-title .tabpane{visibility:hidden}
+#stats,#powerReadout,#log{display:none!important}
+@media(max-width:760px){#hudTraffic{left:8px;right:8px;bottom:88px;width:auto;height:220px}#hudShipInfo{left:8px;bottom:316px;width:250px;min-height:112px;padding:8px}#hudFleetStrip{bottom:7px;height:70px}.fleetChip{width:82px;min-width:82px;height:54px;grid-template-columns:36px 1fr}.fleetSilhouette{width:36px;height:36px}.hudPopover{max-height:60vh}#hudTopLeft{left:8px;top:8px}#hudTopRight{right:8px;top:8px}.focusGrid{grid-template-columns:1fr;font-size:10px}.focusStatus{grid-column:1}}
+@media(max-width:520px){#hudShipInfo{bottom:316px;width:220px}#hudTraffic{height:216px}.fleetChip{width:76px;min-width:76px}#hudDoctrineWrap .hudToggle,#hudOrdersWrap .hudToggle,.hudIconButton{padding:8px;font-size:11px}}
