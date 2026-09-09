@@ -1,4 +1,5 @@
 import {Battle} from './sim.js';
+import {CRAFT,craftSpace} from './craft-catalog.js';
 
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -12,95 +13,44 @@ const GROUP=m=>['gun','laser','missile','fighterBay'].includes(m.type)?'weapons'
 function worldPoint(s,m){const [x,y]=rot(m.x,m.y,s.angle);return{x:s.x+x,y:s.y+y}}
 function aliveEnemies(b,s){return b.ships.filter(o=>!o.dead&&o.team!==s.team)}
 function chosenEnemy(b,s){const es=aliveEnemies(b,s);return es.find(e=>e.uid===s.commandTargetId)||es.sort((a,c)=>dist(a,s)-dist(c,s))[0]||null}
-function chosenModule(attacker,target){
- const alive=target.modules.filter(m=>m.hp>0&&!m.disabled);
- for(const p of attacker.targetPriority||[]){const m=alive.find(x=>GROUP(x)===p);if(m)return m}
- return alive.find(m=>m.type!=='hull')||alive[0];
-}
-function payPower(s,m,kind='offence'){
- if(!s.requestPower||!(m.powerUse>0))return true;
- const ok=s.requestPower(m.powerUse,kind);if(ok)m._powerPaidBus=s.powerBus;return ok;
-}
-function launchMissile(b,s,m,target,targetOrdnance=null,kind='offence'){
- if(!payPower(s,m,kind))return false;
- b.ordnance??=[];
- const p=worldPoint(s,m),a=s.angle+(m.mountDir||0),speed=170;
- b.ordnance.push({kind:'missile',team:s.team,owner:s,x:p.x,y:p.y,vx:s.vx+Math.cos(a)*speed,vy:s.vy+Math.sin(a)*speed,angle:a,hp:m.missileHp||24,maxHp:m.missileHp||24,damage:m.damage||100,fuel:m.missileFuel||9,accel:Math.max(120,(m.missileThrust||85000)/320),turnRate:1.9,target,targetOrdnance,r:1.3,ttl:42});
- m.ammo--;m.cooldownLeft=m.cooldown||4;return true;
-}
-function launchFighter(b,s,bay,target){
- b.ordnance??=[];if(bay.fightersRemaining==null)bay.fightersRemaining=bay.fighters||0;if(bay.fightersRemaining<=0||!payPower(s,bay,'offence'))return false;
- const p=worldPoint(s,bay),a=s.angle+(bay.mountDir||0),n=(bay.fighters||4)-bay.fightersRemaining+1;
- b.ordnance.push({kind:'fighter',team:s.team,owner:s,name:`${s.name} fighter ${n}`,x:p.x,y:p.y,vx:s.vx+Math.cos(a)*95,vy:s.vy+Math.sin(a)*95,angle:a,hp:44,maxHp:44,accel:115,turnRate:3.4,target,r:2.1,ttl:150,shotCooldown:.4,fuel:95});
- bay.fightersRemaining--;bay.cooldownLeft=bay.launchCooldown||3.5;return true;
-}
+function chosenModule(attacker,target){const alive=target.modules.filter(m=>m.hp>0&&!m.disabled);for(const p of attacker.targetPriority||[]){const m=alive.find(x=>GROUP(x)===p);if(m)return m}return alive.find(m=>m.type!=='hull')||alive[0]}
+function payPower(s,m,kind='offence'){if(!s.requestPower||!(m.powerUse>0))return true;const ok=s.requestPower(m.powerUse,kind);if(ok)m._powerPaidBus=s.powerBus;return ok}
+function launchMissile(b,s,m,target,targetOrdnance=null,kind='offence'){if(!payPower(s,m,kind))return false;b.ordnance??=[];const p=worldPoint(s,m),a=s.angle+(m.mountDir||0),speed=170;b.ordnance.push({kind:'missile',team:s.team,owner:s,x:p.x,y:p.y,vx:s.vx+Math.cos(a)*speed,vy:s.vy+Math.sin(a)*speed,angle:a,hp:m.missileHp||24,maxHp:m.missileHp||24,damage:m.damage||100,fuel:m.missileFuel||9,accel:Math.max(120,(m.missileThrust||85000)/320),turnRate:1.9,target,targetOrdnance,r:1.3,ttl:42});m.ammo--;m.cooldownLeft=m.cooldown||4;return true}
 
-Battle.prototype.hitRay=function(attacker,target,damage,kind,ray){
- if(kind==='laser'){
-   const sh=target.modules.find(m=>m.type==='shield'&&m.hp>0&&!m.disabled&&(m.charge||0)>0);
-   if(sh){const absorbed=Math.min(damage,sh.charge*3);sh.charge-=absorbed/3;attacker.damageDone+=absorbed*.05;damage-=absorbed;if(damage<=0)return;}
- }
- return BASE_HIT.call(this,attacker,target,damage,kind,ray);
-};
+function hangars(s){return s.modules.filter(m=>m.type==='hangar'&&m.hp>0&&!m.disabled)}
+function launchBays(s){return s.modules.filter(m=>m.type==='launchBay'&&m.hp>0&&!m.disabled)}
+function initialiseHangar(h){if(!h.craftInventory)h.craftInventory={...(h.defaultCraft||{})};h.initialCraft??={...h.craftInventory};h.craftService??=[];return h}
+function serviceHangars(s,t){for(const h of hangars(s)){initialiseHangar(h);const ready=h.craftService.filter(x=>x.readyAt<=t),waiting=h.craftService.filter(x=>x.readyAt>t);for(const x of ready)h.craftInventory[x.kind]=(h.craftInventory[x.kind]||0)+1;h.craftService=waiting}}
+function hangarUsed(h){initialiseHangar(h);let used=0;for(const [k,n] of Object.entries(h.craftInventory||{}))used+=n*craftSpace(k);for(const x of h.craftService||[])used+=craftSpace(x.kind);return used}
+function freeHangarFor(s,kind){const need=craftSpace(kind);return hangars(s).map(initialiseHangar).filter(h=>(h.hangarSpaces||0)-hangarUsed(h)>=need-.001).sort((a,b)=>((b.hangarSpaces||0)-hangarUsed(b))-((a.hangarSpaces||0)-hangarUsed(a)))[0]||null}
+function sourceHangarFor(s,kind){return hangars(s).map(initialiseHangar).find(h=>(h.craftInventory?.[kind]||0)>0)||null}
+function baySlots(bay){bay._slotUntil??=[];while(bay._slotUntil.length<(bay.launchSlots||1))bay._slotUntil.push(0);return bay._slotUntil}
+function acquireBaySlot(s,t,kind='launch'){for(const bay of launchBays(s)){const slots=baySlots(bay),i=slots.findIndex(x=>x<=t);if(i<0)continue;const spec=CRAFT[kind]||CRAFT.fighter,cycle=(kind==='recovery'?(bay.recoveryCycle||3):(bay.launchCycle||2))*((spec.launchTime||1));return{bay,slots,i,cycle}}return null}
+function countCraft(s,kind){return hangars(s).reduce((n,h)=>n+(initialiseHangar(h).craftInventory?.[kind]||0),0)}
+function initialCraft(s,kind){return hangars(s).reduce((n,h)=>n+(initialiseHangar(h).initialCraft?.[kind]||0),0)}
+function deployedCraft(b,s,kind){return (b.ordnance||[]).filter(o=>o.kind===kind&&o.owner===s&&o.hp>0).length}
+function launchCraft(b,s,kind,target=null){const spec=CRAFT[kind];if(!spec)return false;serviceHangars(s,b.t);const h=sourceHangarFor(s,kind),slot=acquireBaySlot(s,b.t,kind);if(!h||!slot||!payPower(s,slot.bay,'offence'))return false;h.craftInventory[kind]--;slot.slots[slot.i]=b.t+slot.cycle;const p=worldPoint(s,slot.bay),a=s.angle+(slot.bay.mountDir||0),serial=(s._craftSerial=(s._craftSerial||0)+1);const common={kind,team:s.team,owner:s,homeShip:s,homeShipUid:s.uid,name:`${s.name} ${spec.name.toLowerCase()} ${serial}`,x:p.x,y:p.y,vx:s.vx+Math.cos(a)*95,vy:s.vy+Math.sin(a)*95,angle:a,hp:spec.hp,maxHp:spec.hp,accel:spec.accel,turnRate:spec.turnRate,target,r:spec.r,ttl:9999,fuel:spec.maxFuel,maxFuel:spec.maxFuel,returnFuel:spec.returnFuel,shotCooldown:.4,returning:false,recoveryShip:null};if(kind==='sensorDrone'){common.accel=spec.accel;common.picketAngle=a;common.picketDistance=5200;common.sensorStrength=spec.sensorStrength;}b.ordnance.push(common);b.log(`${s.name}: ${spec.name} launched.`);return true}
+function maybeAutoLaunchFighter(b,s,e){if(!e||s.runSilent)return;const initial=initialCraft(s,'fighter'),ready=countCraft(s,'fighter'),deployed=deployedCraft(b,s,'fighter'),reserve=s.fighterReserveFraction??.25;const reserveCount=Math.ceil(initial*reserve);if(ready<=reserveCount)return;const desired=Math.max(1,initial-reserveCount);if(deployed>=desired)return;launchCraft(b,s,'fighter',e)}
 
-Battle.prototype.fireWeapons=function(s,e,powerBudget){
- const result=BASE_FIRE.call(this,s,e,powerBudget);
- e=e&&!e.dead?e:chosenEnemy(this,s);if(!e)return result;
- const bearing=Math.atan2(e.y-s.y,e.x-s.x);
- for(const m of s.modules){
-   if(m.hp<=0||m.disabled||(m.cooldownLeft||0)>0)continue;
-   if(m.type==='missile'&&(m.ammo||0)>0){
-     const aim=wrap(s.angle+(m.mountDir||0)),arc=m.arc||Math.PI/12;
-     if(Math.abs(wrap(bearing-aim))<=arc)launchMissile(this,s,m,e,null,'offence');
-   }else if(m.type==='fighterBay')launchFighter(this,s,m,e);
- }
- return result;
-};
+Battle.prototype.hitRay=function(attacker,target,damage,kind,ray){if(kind==='laser'){const sh=target.modules.find(m=>m.type==='shield'&&m.hp>0&&!m.disabled&&(m.charge||0)>0);if(sh){const absorbed=Math.min(damage,sh.charge*3);sh.charge-=absorbed/3;attacker.damageDone+=absorbed*.05;damage-=absorbed;if(damage<=0)return}}return BASE_HIT.call(this,attacker,target,damage,kind,ray)};
+Battle.prototype.fireWeapons=function(s,e,powerBudget){const result=BASE_FIRE.call(this,s,e,powerBudget);e=e&&!e.dead?e:chosenEnemy(this,s);for(const m of s.modules){if(m.hp<=0||m.disabled||(m.cooldownLeft||0)>0)continue;if(m.type==='missile'&&(m.ammo||0)>0&&e){const bearing=Math.atan2(e.y-s.y,e.x-s.x),aim=wrap(s.angle+(m.mountDir||0)),arc=m.arc||Math.PI/12;if(Math.abs(wrap(bearing-aim))<=arc)launchMissile(this,s,m,e,null,'offence')}}maybeAutoLaunchFighter(this,s,e);return result};
 
-function steer(o,target,dt){
- if(!target)return;
- const wanted=Math.atan2(target.y-o.y,target.x-o.x),err=wrap(wanted-o.angle),turn=clamp(err,-o.turnRate*dt,o.turnRate*dt);o.angle=wrap(o.angle+turn);
- if(o.fuel>0){o.vx+=Math.cos(o.angle)*o.accel*dt;o.vy+=Math.sin(o.angle)*o.accel*dt;o.fuel=Math.max(0,o.fuel-dt)}
-}
+function steer(o,target,dt,useFuel=true){if(!target)return;const wanted=Math.atan2(target.y-o.y,target.x-o.x),err=wrap(wanted-o.angle),turn=clamp(err,-o.turnRate*dt,o.turnRate*dt);o.angle=wrap(o.angle+turn);if(o.fuel>0&&useFuel){o.vx+=Math.cos(o.angle)*o.accel*dt;o.vy+=Math.sin(o.angle)*o.accel*dt;o.fuel=Math.max(0,o.fuel-dt)}}
 function damageOrdnance(o,damage){o.hp-=damage;return o.hp<=0}
-function defenceRank(s,o){
- const order=s.defencePriority||['missile','fighter'];
- const i=order.indexOf(o.kind);return i<0?order.length:i;
-}
-function pointDefence(b,dt){
- for(const s of b.ships){if(s.dead)continue;
-   const hostiles=b.ordnance.filter(o=>o.team!==s.team&&o.hp>0&&dist(o,s)<2600);
-   if(!hostiles.length)continue;
-   hostiles.sort((a,c)=>defenceRank(s,a)-defenceRank(s,c)||dist(a,s)-dist(c,s));
-   for(const w of s.modules){if(w.hp<=0||w.disabled||(w.cooldownLeft||0)>0)continue;if(!['gun','laser','missile'].includes(w.type))continue;
-     const o=hostiles.find(x=>x.hp>0);if(!o)break;const bearing=Math.atan2(o.y-s.y,o.x-s.x),aim=wrap(s.angle+(w.mountDir||0)),arc=(w.arc||Math.PI/12)*1.4;if(Math.abs(wrap(bearing-aim))>arc)continue;
-     const d=dist(o,s);if(w.type==='laser'&&d<Math.min(w.range||9000,3500)){
-       if(!payPower(s,w,'defence'))continue;damageOrdnance(o,(w.damage||20)*1.8);w.cooldownLeft=w.cooldown||.8;s.shots++;
-     }else if(w.type==='gun'&&(w.ammo||0)>0&&d<2300){
-       if(!payPower(s,w,'defence'))continue;damageOrdnance(o,(w.damage||40)*.9);w.ammo--;w.cooldownLeft=w.cooldown||1.3;s.shots++;
-     }else if(w.type==='missile'&&(w.ammo||0)>0&&d<5000)launchMissile(b,s,w,null,o,'defence');
-   }
- }
-}
-function fighterAttack(b,f,dt){
- f.shotCooldown=Math.max(0,f.shotCooldown-dt);
- const hostileOrdnance=b.ordnance.filter(o=>o!==f&&o.team!==f.team&&o.hp>0&&dist(o,f)<900).sort((a,c)=>{
-   const owner=f.owner||{};return defenceRank(owner,a)-defenceRank(owner,c)||dist(a,f)-dist(c,f);
- })[0];
- if(hostileOrdnance&&f.shotCooldown<=0){damageOrdnance(hostileOrdnance,24);f.shotCooldown=.45;return}
- let target=f.target;if(!target||target.dead)target=aliveEnemies(b,f.owner)[0];f.target=target;if(!target)return;
- if(dist(f,target)<720&&f.shotCooldown<=0){const m=chosenModule(f.owner,target);if(m){const [rx,ry]=rot(m.x,m.y,target.angle),tx=target.x+rx,ty=target.y+ry;b.hitRay(f.owner,target,18,'fighter',{x:f.x,y:f.y,dx:tx-f.x,dy:ty-f.y,penetration:.85});f.shotCooldown=.38;}}
-}
-function updateOrdnance(b,dt){
- b.ordnance??=[];pointDefence(b,dt);
- for(const o of b.ordnance){if(o.hp<=0)continue;o.ttl-=dt;
-   if(o.kind==='missile'){
-     const t=o.targetOrdnance&&o.targetOrdnance.hp>0?o.targetOrdnance:(!o.target?.dead?o.target:null);steer(o,t,dt);o.x+=o.vx*dt;o.y+=o.vy*dt;
-     if(t&&dist(o,t)<(t.r||t.radius||8)+4){if(o.targetOrdnance){damageOrdnance(t,o.damage*.8)}else{b.hitRay(o.owner,t,o.damage,'missile',{x:o.x,y:o.y,dx:o.vx-t.vx,dy:o.vy-t.vy,penetration:1.3})}o.hp=0;}
-   }else if(o.kind==='fighter'){
-     let t=o.target;if(!t||t.dead)t=aliveEnemies(b,o.owner)[0];o.target=t;if(t)steer(o,t,dt);o.x+=o.vx*dt;o.y+=o.vy*dt;fighterAttack(b,o,dt);
-   }
- }
- b.ordnance=b.ordnance.filter(o=>o.hp>0&&o.ttl>0);
-}
+function defenceRank(s,o){const order=s.defencePriority||['missile','fighter'];const i=order.indexOf(o.kind);return i<0?order.length:i}
+function pointDefence(b,dt){for(const s of b.ships){if(s.dead)continue;const hostiles=b.ordnance.filter(o=>o.team!==s.team&&o.hp>0&&dist(o,s)<2600);if(!hostiles.length)continue;hostiles.sort((a,c)=>defenceRank(s,a)-defenceRank(s,c)||dist(a,s)-dist(c,s));for(const w of s.modules){if(w.hp<=0||w.disabled||(w.cooldownLeft||0)>0)continue;if(!['gun','laser','missile'].includes(w.type))continue;const o=hostiles.find(x=>x.hp>0);if(!o)break;const bearing=Math.atan2(o.y-s.y,o.x-s.x),aim=wrap(s.angle+(w.mountDir||0)),arc=(w.arc||Math.PI/12)*1.4;if(Math.abs(wrap(bearing-aim))>arc)continue;const d=dist(o,s);if(w.type==='laser'&&d<Math.min(w.range||9000,3500)){if(!payPower(s,w,'defence'))continue;damageOrdnance(o,(w.damage||20)*1.8);w.cooldownLeft=w.cooldown||.8;s.shots++}else if(w.type==='gun'&&(w.ammo||0)>0&&d<2300){if(!payPower(s,w,'defence'))continue;damageOrdnance(o,(w.damage||40)*.9);w.ammo--;w.cooldownLeft=w.cooldown||1.3;s.shots++}else if(w.type==='missile'&&(w.ammo||0)>0&&d<5000)launchMissile(b,s,w,null,o,'defence')}}}}
+function fighterAttack(b,f,dt){f.shotCooldown=Math.max(0,f.shotCooldown-dt);const hostileOrdnance=b.ordnance.filter(o=>o!==f&&o.team!==f.team&&o.hp>0&&dist(o,f)<900).sort((a,c)=>{const owner=f.owner||{};return defenceRank(owner,a)-defenceRank(owner,c)||dist(a,f)-dist(c,f)})[0];if(hostileOrdnance&&f.shotCooldown<=0){damageOrdnance(hostileOrdnance,24);f.shotCooldown=.45;return}let target=f.target;if(!target||target.dead)target=aliveEnemies(b,f.owner)[0];f.target=target;if(!target)return;if(dist(f,target)<720&&f.shotCooldown<=0){const m=chosenModule(f.owner,target);if(m){const [rx,ry]=rot(m.x,m.y,target.angle),tx=target.x+rx,ty=target.y+ry;b.hitRay(f.owner,target,18,'fighter',{x:f.x,y:f.y,dx:tx-f.x,dy:ty-f.y,penetration:.85});f.shotCooldown=.38}}}
+function recoveryCongestion(s,b,t){const bays=launchBays(s);if(!bays.length)return 9999;let busy=0,total=0;for(const bay of bays){for(const until of baySlots(bay)){total++;if(until>t)busy++}}return total?busy/total:1}
+function compatibleRecoveryShips(b,f){return b.ships.filter(s=>s.team===f.team&&!s.dead&&launchBays(s).length&&freeHangarFor(s,f.kind))}
+function chooseRecoveryShip(b,f){const candidates=compatibleRecoveryShips(b,f);if(!candidates.length)return null;const critical=f.fuel<Math.max(10,f.returnFuel*.35)||f.hp/f.maxHp<.22;return candidates.sort((a,c)=>{const score=s=>{let v=dist(f,s)+recoveryCongestion(s,b,b.t)*1400;if(!critical&&s===f.homeShip)v-=2200;if(s===f.homeShip&&recoveryCongestion(s,b,b.t)>.8)v+=900;return v};return score(a)-score(c)})[0]}
+function attemptDock(b,f,s){const d=dist(f,s),rv=Math.hypot(f.vx-s.vx,f.vy-s.vy);if(d>Math.max(55,(s.radius||15)+30)||rv>95)return false;const slot=acquireBaySlot(s,b.t,'recovery'),h=freeHangarFor(s,f.kind);if(!slot||!h)return false;slot.slots[slot.i]=b.t+(slot.bay.recoveryCycle||3)*(CRAFT[f.kind]?.recoveryTime||1);initialiseHangar(h);h.craftService.push({kind:f.kind,readyAt:slot.slots[slot.i]+(CRAFT[f.kind]?.serviceTime||8)});f.hp=0;f.recovered=true;b.log(`${f.name} recovered aboard ${s.name}${s===f.homeShip?'':' after diverting'}.`);return true}
+function updateReturningCraft(b,f,dt){let ship=f.recoveryShip;if(!ship||ship.dead||!freeHangarFor(ship,f.kind)){ship=chooseRecoveryShip(b,f);f.recoveryShip=ship}if(!ship){f.vx*=.999;f.vy*=.999;return}steer(f,ship,dt,true);f.x+=f.vx*dt;f.y+=f.vy*dt;attemptDock(b,f,ship)}
+function updateFighter(b,f,dt){if(!f.returning&&(f.fuel<=f.returnFuel||f.hp/f.maxHp<.35||f.recallRequested)){f.returning=true;f.target=null;f.recoveryShip=chooseRecoveryShip(b,f)}if(f.returning){updateReturningCraft(b,f,dt);return}let t=f.target;if(!t||t.dead)t=aliveEnemies(b,f.owner)[0];f.target=t;if(t)steer(f,t,dt,true);f.x+=f.vx*dt;f.y+=f.vy*dt;fighterAttack(b,f,dt)}
+function updateSensorDrone(b,d,dt){if(!d.returning&&(d.fuel<=d.returnFuel||d.recallRequested||d.homeShip?.dead)){d.returning=true;d.recoveryShip=chooseRecoveryShip(b,d)}if(d.returning){updateReturningCraft(b,d,dt);return}const home=d.homeShip;if(!home||home.dead){d.returning=true;d.recoveryShip=chooseRecoveryShip(b,d);return}const target={x:home.x+Math.cos(d.picketAngle)*d.picketDistance,y:home.y+Math.sin(d.picketAngle)*d.picketDistance};if(dist(d,target)>260)steer(d,target,dt,true);else d.fuel=Math.max(0,d.fuel-dt*.08);d.x+=d.vx*dt;d.y+=d.vy*dt}
+function updateOrdnance(b,dt){b.ordnance??=[];for(const s of b.ships)if(!s.dead)serviceHangars(s,b.t);pointDefence(b,dt);for(const o of b.ordnance){if(o.hp<=0)continue;o.ttl-=dt;if(o.kind==='missile'){const t=o.targetOrdnance&&o.targetOrdnance.hp>0?o.targetOrdnance:(!o.target?.dead?o.target:null);steer(o,t,dt,true);o.x+=o.vx*dt;o.y+=o.vy*dt;if(t&&dist(o,t)<(t.r||t.radius||8)+4){if(o.targetOrdnance)damageOrdnance(t,o.damage*.8);else b.hitRay(o.owner,t,o.damage,'missile',{x:o.x,y:o.y,dx:o.vx-t.vx,dy:o.vy-t.vy,penetration:1.3});o.hp=0}}else if(o.kind==='fighter')updateFighter(b,o,dt);else if(o.kind==='sensorDrone')updateSensorDrone(b,o,dt)}b.ordnance=b.ordnance.filter(o=>o.hp>0&&o.ttl>0)}
 Battle.prototype.updateProjectiles=function(dt){BASE_UPDATE.call(this,dt);updateOrdnance(this,dt)};
+
+export function setFighterReserve(ship,fraction){ship.fighterReserveFraction=clamp(fraction,0,1)}
+export function launchSensorDrone(b,ship){return launchCraft(b,ship,'sensorDrone',null)}
+export function recallCraft(ship,b,kind=null){for(const o of b.ordnance||[])if(o.team===ship.team&&o.owner===ship&&(!kind||o.kind===kind))o.recallRequested=true}
+export function craftInventory(ship){const out={fighter:0,sensorDrone:0,servicing:0,deployed:0};for(const h of hangars(ship)){initialiseHangar(h);for(const k of ['fighter','sensorDrone'])out[k]+=h.craftInventory?.[k]||0;out.servicing+=(h.craftService||[]).length}return out}
