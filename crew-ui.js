@@ -4,6 +4,7 @@ import {recordSocialDecision,socialSummary} from './fleet-social-system.js';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel=n=>n>=5?'CRITICAL':n>=4?'URGENT':n>=3?'IMPORTANT':n>=2?'ADVISORY':'INFO';
+let lastNewestId=null;
 function install(){
  const aside=document.querySelector('#battle>aside');if(!aside||document.querySelector('#crewInbox'))return;
  const wrap=document.createElement('section');wrap.className='crewPanel';wrap.innerHTML=`
@@ -42,18 +43,32 @@ function bindDismiss(roster,b){
    refresh();
  });
 }
+function visibleTraffic(reports,b){
+ const now=b.t||0;
+ return reports.filter(r=>{
+   if(r.request&&r.status==='open')return true;
+   if((r.severity||0)>=3)return true;
+   // Advisory chatter is only worth surfacing briefly when it is fresh. Routine info
+   // stays in the underlying history but does not constantly compete for attention.
+   if((r.severity||0)===2&&now-(r.t||0)<8)return true;
+   return false;
+ }).sort((a,c)=>(a.t||0)-(c.t||0));
+}
 function refresh(){
  const b=currentBattle();if(!b)return;
  const inbox=document.querySelector('#crewInbox'),roster=document.querySelector('#crewRoster');if(!inbox||!roster)return;
  for(const s of b.ships){ensureCrew(s);ensureHumanCrew(s)}
- const reports=[...(b.crewInbox||[])].filter(r=>b.ships.find(s=>s.uid===r.shipUid)?.team==='P').sort((a,c)=>(c.status==='open')-(a.status==='open')||c.severity-a.severity||c.t-a.t);
- const open=reports.filter(r=>r.status==='open'&&r.request);document.querySelector('#openRequestCount').textContent=`${open.length} open`;
- inbox.innerHTML=(reports.slice(0,14).map(reportCard).join(''))||'<p class="quietTraffic">No significant reports. Captains are executing standing orders.</p>';
+ const all=[...(b.crewInbox||[])].filter(r=>b.ships.find(s=>s.uid===r.shipUid)?.team==='P');
+ const reports=visibleTraffic(all,b),open=all.filter(r=>r.status==='open'&&r.request);
+ document.querySelector('#openRequestCount').textContent=`${open.length} open`;
+ const shown=reports.slice(-18),newest=shown[shown.length-1]?.id||null;
+ inbox.innerHTML=shown.length?shown.map(reportCard).join(''):'<p class="quietTraffic">No significant traffic. Captains are executing standing orders.</p>';
  roster.innerHTML=b.ships.filter(s=>s.team==='P').map(s=>rosterCard(s,b)).join('');
  inbox.querySelectorAll('[data-answer]').forEach(btn=>btn.onclick=()=>{
    const card=btn.closest('[data-report]'),r=(b.crewInbox||[]).find(x=>x.id===card.dataset.report),approved=btn.dataset.answer==='approve';
    answerCrewRequest(b,card.dataset.report,approved);recordAdmiralDecision(b,r,approved);recordSocialDecision(b,r,approved);refresh();
  });
  bindDismiss(roster,b);
+ if(newest&&newest!==lastNewestId){lastNewestId=newest;requestAnimationFrame(()=>{inbox.scrollTop=inbox.scrollHeight})}
 }
-install();setInterval(refresh,250);
+install();setInterval(refresh,300);
