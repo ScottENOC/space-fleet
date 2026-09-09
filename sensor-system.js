@@ -10,7 +10,7 @@ function reactorEmission(s){if(s.runSilent)return 0;return alive(s,'reactor').re
 function engineEmission(s){if(s.runSilent)return 0;return alive(s,'engine').reduce((n,m)=>n+(m.active?(m.force||0)/1e6*(1.8+2.2*(m.output||0)):0),0);}
 function weaponEmission(s){if(s.runSilent)return 0;let v=0;for(const m of s.modules){if(m.hp<=0||m.disabled||(m.cooldownLeft||0)<=0)continue;if(m.type==='laser')v+=55;if(m.type==='gun')v+=22;if(m.type==='missile')v+=30;if(m.type==='fighterBay')v+=18;}return v;}
 export function shipSignature(s){const base=hullSignature(s),reactor=reactorEmission(s),engines=engineEmission(s),weapons=weaponEmission(s);return{base,reactor,engines,weapons,total:base+reactor+engines+weapons};}
-function sensorStrength(s){const bridge=alive(s,'bridge').length?.72:0;const arrays=alive(s,'sensor').reduce((n,m)=>n+(m.sensitivity||1)*(m.hp/Math.max(1,m.maxHp||m.hp)),0);return bridge+arrays;}
+function sensorStrength(s){const bridge=alive(s,'bridge').length?.72:0;const arrays=alive(s,'sensor').reduce((n,m)=>n+(m.sensitivity||1)*(m.hp/Math.max(1,m.maxHp||m.hp)),0);return (bridge+arrays)*clamp(s.sensorPowerFraction??1,.15,1);}
 function ownClutter(b,s){const own=shipSignature(s),nearOrdnance=(b.ordnance||[]).filter(o=>dist(o,s)<2600).length;const nearbyShips=b.ships.filter(o=>o!==s&&!o.dead&&dist(o,s)<3500).reduce((n,o)=>n+Math.min(12,shipSignature(o).total*.08),0);return 1+own.reactor*.045+own.engines*.09+own.weapons*.035+nearOrdnance*.07+nearbyShips*.025;}
 function evidence(observer,target,b){const r=Math.max(100,dist(observer,target)),sig=shipSignature(target),strength=sensorStrength(observer),clutter=ownClutter(b,observer);const passive=(sig.reactor+sig.engines+sig.weapons)*strength*900000/(r*r*clutter);const radar=sig.base*strength*520000/(r*r*Math.sqrt(clutter));return passive+radar;}
 function ensureContacts(b){b.sensorContacts??={P:{},E:{}};b.sensorContacts.P??={};b.sensorContacts.E??={};}
@@ -19,16 +19,30 @@ function updateTeamContacts(b,team,dt){const observers=b.ships.filter(s=>s.team=
 export function getContact(b,team,uid){ensureContacts(b);return b.sensorContacts?.[team]?.[uid]||{uid,quality:0,level:'unknown',signal:0};}
 export function knownEnemies(b,team,minQuality=.1){ensureContacts(b);return b.ships.filter(s=>s.team!==team&&!s.dead&&getContact(b,team,s.uid).quality>=minQuality);}
 
+const BASE_APPLY=Battle.prototype.applySystems;
+Battle.prototype.applySystems=function(s,dt){
+  const out=BASE_APPLY.call(this,s,dt);
+  const arrays=alive(s,'sensor'),need=.04e6+arrays.reduce((n,m)=>n+(m.powerUse||0)*(m.hp/Math.max(1,m.maxHp||m.hp)),0);
+  if(s.requestPower&&need>0){const before=s.powerBus?.usedMW||0;s.requestPower(need,'sensors');const supplied=Math.max(0,(s.powerBus?.usedMW||0)-before);s.sensorPowerFraction=clamp(supplied/need,.15,1);if(s.powerState){s.powerState.demandMW=s.powerBus.usedMW;s.powerState.requestedMW=s.powerBus.requestedMW;s.powerState.unmetMW=s.powerBus.unmetMW;s.powerState.groups=s.powerBus.groups;}}
+  else s.sensorPowerFraction=1;
+  return out;
+};
+
 const BASE_STEP=Battle.prototype.step;
 Battle.prototype.step=function(dt){ensureContacts(this);const out=BASE_STEP.call(this,dt);updateTeamContacts(this,'P',dt);updateTeamContacts(this,'E',dt);return out;};
 
 const BASE_ENEMY=Battle.prototype.enemy;
 Battle.prototype.enemy=function(s){const known=knownEnemies(this,s.team,.08);if(!known.length)return null;const ordered=s.commandTargetId&&known.find(o=>o.uid===s.commandTargetId);if(ordered)return ordered;return known.sort((a,b)=>dist(a,s)-dist(b,s))[0]||BASE_ENEMY.call(this,s);};
 
+const BASE_FIRE=Battle.prototype.fireWeapons;
+Battle.prototype.fireWeapons=function(s,e,powerBudget){
+  if(!e)return BASE_FIRE.call(this,s,e,powerBudget);
+  const c=getContact(this,s.team,e.uid);if(c.quality>=.82)return BASE_FIRE.call(this,s,e,powerBudget);
+  const old=s.targetPriority;s.targetPriority=['hull'];
+  try{return BASE_FIRE.call(this,s,e,powerBudget)}finally{s.targetPriority=old;}
+};
+
 export function sensorSummary(b,observerTeam,target){const c=getContact(b,observerTeam,target.uid);return{...c,signature:shipSignature(target)};}
 if(typeof window!=='undefined'){
-  window.__sensorGetContact=getContact;
-  window.__sensorKnownEnemies=knownEnemies;
-  window.__sensorSummary=sensorSummary;
-  window.__shipSignature=shipSignature;
+  window.__sensorGetContact=getContact;window.__sensorKnownEnemies=knownEnemies;window.__sensorSummary=sensorSummary;window.__shipSignature=shipSignature;
 }
