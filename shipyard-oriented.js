@@ -18,6 +18,14 @@ export const designStats=base.designStats;
 // when converting a blueprint so visual "up" becomes physical "forward".
 export function blueprintToShip(bp,team='A'){
   const s=base.blueprintToShip(bp,team);
+  const h=HULLS[bp.hullId];
+  if(h){
+    s.civilianHull=!!h.civilianHull;
+    s.structuralDamageMultiplier=h.structuralDamageMultiplier||1;
+    s.collisionDamageMultiplier=h.collisionDamageMultiplier||1;
+    s.basePrice=h.basePrice||0;
+    s.hullRole=h.role;
+  }
   if(!s.grid)return s;
   const oldW=s.grid.width,oldH=s.grid.height;
   const rotateCell=([x,y])=>[oldH-1-y,x];
