@@ -28,7 +28,7 @@ function installControls(){
   wrap.innerHTML=`<h2>Captain doctrine</h2>
     <label>Preset<select id="doctrinePreset"></select></label>
     <div class="doctrineButtons"><button id="balancedNow">Balanced</button><button id="codeRedNow">CODE RED</button></div>
-    <p><b>Code Red:</b> shield maintenance/recharge first, then engines, then weapons; reserve power for point defence; engage missiles before fighters; offensive lasers wait for >=95% battery charge. Custom doctrines created in the Doctrine tab appear here too.</p>`;
+    <p><b>Code Red:</b> shield maintenance/recharge first, then engines, then weapons; reserve power for point defence when an actual missile/fighter threat exists; engage missiles before fighters; offensive lasers wait for >=95% battery charge. Custom doctrines created in the Doctrine tab appear here too.</p>`;
   orders.prepend(wrap);refreshDoctrineSelect();
   document.querySelector('#balancedNow').onclick=()=>applyPreset('balanced');
   document.querySelector('#codeRedNow').onclick=()=>applyPreset('codeRed');
@@ -44,9 +44,11 @@ function powerLine(s){
   const label=k=>({shieldMaintain:'shield hold',shieldRecharge:'shield recharge',engines:'engines',weapons:'weapons',defence:'point defence',offence:'offence'}[k]||k);
   const active=Object.entries(groups).filter(([,g])=>g.requested>1e3).map(([k,g])=>`${label(k)} ${fmtMW(g.supplied)}`).join(' · ');
   const doctrine=DOCTRINES[s.doctrineId]?.name||s.doctrineId||'Balanced';
+  const reserve=p.defenceReserveMW>1e3?` · PD reserve ${fmtMW(p.defenceReserveMW)}`:'';
+  const weapons=p.weaponStatus?`<br><small>Weapons: ${p.weaponStatus}</small>`:'';
   return `<div class="powercard"><b>${s.name}</b> · ${doctrine}<br>
-    generation ${fmtMW(p.generationMW)} · load ${fmtMW(p.demandMW)} · battery ${fmtMW(p.storageMW)}${deficit}<br>
-    <small>stored ${storage}${active?` · ${active}`:''}</small></div>`;
+    generation ${fmtMW(p.generationMW)} · load ${fmtMW(p.demandMW)} · battery ${fmtMW(p.storageMW)}${deficit}${reserve}<br>
+    <small>stored ${storage}${active?` · ${active}`:''}</small>${weapons}</div>`;
 }
 function refreshTelemetry(){
   const b=window.__fleetBattle;if(!b)return;
