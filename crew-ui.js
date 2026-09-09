@@ -1,5 +1,6 @@
 import {ensureCrew,answerCrewRequest} from './crew-system.js';
 import {ensureHumanCrew,dismissOfficer,visibleAssessment,officerSummary,recordAdmiralDecision} from './crew-human-factors.js';
+import {recordSocialDecision,socialSummary} from './fleet-social-system.js';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sevLabel=n=>n>=5?'CRITICAL':n>=4?'URGENT':n>=3?'IMPORTANT':n>=2?'ADVISORY':'INFO';
@@ -29,9 +30,9 @@ function officerRow(s,p){
    <button data-dismiss>Dismiss</button>
  </div>`;
 }
-function rosterCard(s){
- const crew=ensureHumanCrew(s),people=Object.values(crew);
- return `<div class="rosterShip"><h3>${s.isFlagship?'★ ':''}${esc(s.name)}</h3>${people.map(p=>officerRow(s,p)).join('')}</div>`;
+function rosterCard(s,b){
+ const crew=ensureHumanCrew(s),people=Object.values(crew),social=socialSummary(s);
+ return `<div class="rosterShip"><h3>${s.isFlagship?'★ ':''}${esc(s.name)}</h3>${social.length?`<p class="socialCue">Captain: ${social.map(esc).join(' · ')}</p>`:''}${people.map(p=>officerRow(s,p)).join('')}</div>`;
 }
 function bindDismiss(roster,b){
  roster.querySelectorAll('[data-dismiss]').forEach(btn=>btn.onclick=()=>{
@@ -46,12 +47,12 @@ function refresh(){
  const inbox=document.querySelector('#crewInbox'),roster=document.querySelector('#crewRoster');if(!inbox||!roster)return;
  for(const s of b.ships){ensureCrew(s);ensureHumanCrew(s)}
  const reports=[...(b.crewInbox||[])].filter(r=>b.ships.find(s=>s.uid===r.shipUid)?.team==='P').sort((a,c)=>(c.status==='open')-(a.status==='open')||c.severity-a.severity||c.t-a.t);
- const open=reports.filter(r=>r.status==='open');document.querySelector('#openRequestCount').textContent=`${open.length} open`;
+ const open=reports.filter(r=>r.status==='open'&&r.request);document.querySelector('#openRequestCount').textContent=`${open.length} open`;
  inbox.innerHTML=(reports.slice(0,14).map(reportCard).join(''))||'<p class="quietTraffic">No significant reports. Captains are executing standing orders.</p>';
- roster.innerHTML=b.ships.filter(s=>s.team==='P').map(rosterCard).join('');
+ roster.innerHTML=b.ships.filter(s=>s.team==='P').map(s=>rosterCard(s,b)).join('');
  inbox.querySelectorAll('[data-answer]').forEach(btn=>btn.onclick=()=>{
    const card=btn.closest('[data-report]'),r=(b.crewInbox||[]).find(x=>x.id===card.dataset.report),approved=btn.dataset.answer==='approve';
-   answerCrewRequest(b,card.dataset.report,approved);recordAdmiralDecision(b,r,approved);refresh();
+   answerCrewRequest(b,card.dataset.report,approved);recordAdmiralDecision(b,r,approved);recordSocialDecision(b,r,approved);refresh();
  });
  bindDismiss(roster,b);
 }
