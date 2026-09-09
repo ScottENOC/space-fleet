@@ -1,7 +1,9 @@
 import {Battle} from './sim.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const BASE_APPLY=Battle.prototype.applySystems;
+const BASE_STEP=Battle.prototype.step;
 
 export const PLAY_DEAD_MODES={off:{label:'Normal operations'},armed:{label:'Play dead'}};
 
@@ -26,12 +28,29 @@ export function apparentReadiness(s,sensorQuality=.5){
  return clamp(actual*(1-deception)*.42+(1-credibility)*.12,0,1);
 }
 export function setPlayDead(ship,on=true){
- ship.playDead=!!on;
- ship.playDeadArmed=!!on;
- if(on){ship.runSilent=false;ship.playDeadSince=performance?.now?.()||Date.now();ship.playDeadSprung=false;}
+ ship.playDead=!!on;ship.playDeadArmed=!!on;
+ if(on){ship.runSilent=false;ship.playDeadSince=typeof performance!=='undefined'&&performance.now?performance.now():Date.now();ship.playDeadSprung=false;ship.playDeadKillZone=ship.playDeadKillZone||2100;}
  return ship.playDead;
 }
 export function springPlayDead(ship,reason='contact'){if(!ship?.playDead)return false;ship.playDead=false;ship.playDeadArmed=false;ship.playDeadSprung=true;ship.playDeadSpringReason=reason;ship.playDeadSpringAt=Date.now();return true;}
+
+function inboundBoardingCraft(b,s){
+ return (b.ordnance||[]).filter(o=>o.kind==='boardingShuttle'&&o.hp>0&&o.team!==s.team&&o.target===s&&o.state==='approach').map(o=>{
+   const dx=s.x-o.x,dy=s.y-o.y,d=Math.hypot(dx,dy),rvx=(o.vx||0)-(s.vx||0),rvy=(o.vy||0)-(s.vy||0),closing=d>0?(rvx*dx+rvy*dy)/d:0;
+   return{o,d,closing};
+ }).filter(x=>x.closing>0).sort((a,c)=>a.d-c.d);
+}
+function maybeSpringBoardingTrap(b,s){
+ if(!s.playDead||!s.playDeadArmed)return;
+ const q=inboundBoardingCraft(b,s),nearest=q[0];if(!nearest)return;
+ const credibility=playDeadCredibility(s),weapons=(s.modules||[]).filter(m=>['gun','laser','missile'].includes(m.type)&&m.hp>0&&!m.disabled);
+ if(!weapons.length)return;
+ const base=s.playDeadKillZone||2100,killZone=clamp(base*(.82+credibility*.22),1450,2550);
+ if(nearest.d>killZone)return;
+ springPlayDead(s,'boarding craft entered kill zone');
+ s.playDeadTrapTargetUid=nearest.o.uid;s.playDeadTrapUntil=(b.t||0)+4.5;
+ b.log(`${s.name}: PLAY-DEAD TRAP SPRUNG — ${nearest.o.name} entered the kill zone. Concealed systems light and defensive batteries open fire.`);
+}
 
 Battle.prototype.applySystems=function(s,dt){
  if(!s.playDead)return BASE_APPLY.call(this,s,dt);
@@ -40,10 +59,8 @@ Battle.prototype.applySystems=function(s,dt){
    s.throttle=0;
    for(const [m] of saved.disabled)m.disabled=true;
    for(const [m] of saved.shieldDisabled)m.disabled=true;
-   // Keep a very low hotel-load reactor signature rather than impossible zero-energy operation.
    for(const [m,p] of saved.reactorPower)m.power=p*.055;
-   s.weaponStatus='playing dead';
-   s.playDeadState={credibility:playDeadCredibility(s),apparent:true};
+   s.weaponStatus='playing dead';s.playDeadState={credibility:playDeadCredibility(s),apparent:true};
    return BASE_APPLY.call(this,s,dt);
  } finally {
    s.throttle=saved.throttle;
@@ -53,14 +70,16 @@ Battle.prototype.applySystems=function(s,dt){
  }
 };
 
+Battle.prototype.step=function(dt){for(const s of this.ships||[])if(!s.dead)maybeSpringBoardingTrap(this,s);return BASE_STEP.call(this,dt)};
+
+// Fallback only: if the shuttle somehow survives the kill zone and reaches the hull,
+// defenders still exploit the deception during the breach rather than forgetting the trap existed.
 export function boardingAmbush(b,target,shuttle){
  if(!target?.playDeadArmed||!target.playDead)return null;
- const credibility=playDeadCredibility(target),crew=target.boardingState,defenders=Math.max(3,(crew?.defenderStrength||6)-(crew?.casualties||0));
- const marines=Math.max(1,shuttle.marines||1),prepared=clamp(.46+credibility*.34+defenders/(defenders+marines)*.25,.35,.92),lossFraction=clamp(prepared*(.70+Math.random()*.22),.30,.94),lost=Math.min(marines,Math.max(1,Math.round(marines*lossFraction)));
- shuttle.marines=Math.max(0,marines-lost);
- springPlayDead(target,'boarding trap');
- b?.log?.(`${target.name}: PLAY-DEAD AMBUSH — concealed systems come alive as ${shuttle.name} commits. ${lost}/${marines} boarders lost before establishing a foothold.`);
- return{lost,survivors:shuttle.marines,credibility};
+ springPlayDead(target,'boarding craft reached hull');
+ const marines=Math.max(1,shuttle.marines||1),lost=Math.max(1,Math.round(marines*.35));shuttle.marines=Math.max(0,marines-lost);
+ b?.log?.(`${target.name}: concealed security teams ambush the surviving boarders at the breach. ${lost}/${marines} boarders lost.`);
+ return{lost,survivors:shuttle.marines,credibility:playDeadCredibility(target)};
 }
 
 if(typeof window!=='undefined'){
