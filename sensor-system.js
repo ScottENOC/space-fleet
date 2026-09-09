@@ -1,5 +1,5 @@
-import {Battle} from './sim.js';
 import {HULLS} from './shipyard.js';
+import {registerBattleHook} from './battle-hooks.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -17,25 +17,20 @@ function hostileJamming(observer,target,b){let jam=0;for(const s of b.ships){if(
 function evidence(observer,target,b){const r=Math.max(100,dist(observer,target)),sig=shipSignature(target),strength=sensorStrength(observer),clutter=ownClutter(b,observer),jam=hostileJamming(observer,target,b),jamFactor=1/(1+jam*.72),passive=(sig.reactor+sig.engines+sig.weapons+sig.thermal+sig.ew)*strength*900000/(r*r*clutter),radar=sig.base*strength*520000/(r*r*Math.sqrt(clutter));return passive+radar*jamFactor}
 function ensureContacts(b){b.sensorContacts??={P:{},E:{}};b.sensorContacts.P??={};b.sensorContacts.E??={};b.sensorGhosts??={P:{},E:{}};b.sensorGhosts.P??={};b.sensorGhosts.E??={}}
 function qualityLabel(q){return q>=.82?'resolved':q>=.57?'classified':q>=.30?'track':q>=.10?'contact':'unknown'}
-function readinessEstimate(target,q){
- const hook=typeof window!=='undefined'?window.__playDeadApparentReadiness:null;
- if(hook)return hook(target,q);
- const ms=(target.modules||[]).filter(m=>m.type!=='hull'),max=ms.reduce((n,m)=>n+(m.maxHp||m.hp||1),0)||1,hp=ms.reduce((n,m)=>n+Math.max(0,m.hp||0),0);
- return clamp(hp/max,0,1);
-}
+function readinessEstimate(target,q){const hook=typeof window!=='undefined'?window.__playDeadApparentReadiness:null;if(hook)return hook(target,q);const ms=(target.modules||[]).filter(m=>m.type!=='hull'),max=ms.reduce((n,m)=>n+(m.maxHp||m.hp||1),0)||1,hp=ms.reduce((n,m)=>n+Math.max(0,m.hp||0),0);return clamp(hp/max,0,1)}
 function updateTeamContacts(b,team,dt){const shipObservers=b.ships.filter(s=>s.team===team&&!s.dead),droneObservers=(b.ordnance||[]).filter(o=>o.team===team&&o.kind==='sensorDrone'&&o.hp>0),observers=[...shipObservers,...droneObservers],targets=b.ships.filter(s=>s.team!==team&&!s.dead),table=b.sensorContacts[team];for(const t of targets){let best=0;for(const o of observers)best=Math.max(best,evidence(o,t,b));const c=table[t.uid]??={uid:t.uid,quality:0,lastSeen:0,lastX:t.x,lastY:t.y},gain=clamp(best*dt*.75,0,.24),decay=best<.02?dt*.012:dt*.0025;c.quality=clamp(c.quality+gain-decay,0,1);if(best>.008){c.lastSeen=b.t;c.lastX=t.x;c.lastY=t.y}c.level=qualityLabel(c.quality);c.signal=best;c.jammed=hostileJamming(shipObservers[0]||droneObservers[0]||t,t,b)>.05;c.apparentReadiness=readinessEstimate(t,c.quality);c.apparentlyDisabled=c.apparentReadiness<.23;table[t.uid]=c}for(const uid of Object.keys(table))if(!targets.some(t=>t.uid===uid))table[uid].quality=Math.max(0,table[uid].quality-dt*.025)}
 function ghostEvidence(observer,d){const r=Math.max(100,dist(observer,d)),strength=sensorStrength(observer),clutter=1+Math.max(0,ownClutter({ordnance:[],ships:[]},observer)-1);return (d.emission||25)*(d.decoyStrength||1)*strength*760000/(r*r*clutter)}
 function updateGhosts(b,team,dt){const observers=[...b.ships.filter(s=>s.team===team&&!s.dead),...(b.ordnance||[]).filter(o=>o.team===team&&o.kind==='sensorDrone'&&o.hp>0)],decoys=(b.ordnance||[]).filter(o=>o.kind==='decoy'&&o.team!==team&&o.hp>0),table=b.sensorGhosts[team];for(const d of decoys){let best=0;for(const o of observers)best=Math.max(best,ghostEvidence(o,d));const g=table[d.uid]??={uid:d.uid,quality:0,lastSeen:0,lastX:d.x,lastY:d.y,sourceUid:d.owner?.uid||null};g.quality=clamp(g.quality+clamp(best*dt*.85,0,.22)-dt*.003,0,.76);if(best>.006){g.lastSeen=b.t;g.lastX=d.x;g.lastY=d.y}g.level=qualityLabel(g.quality);g.signal=best;g.vx=d.vx;g.vy=d.vy;table[d.uid]=g}for(const [uid,g] of Object.entries(table)){if(!decoys.some(d=>d.uid===uid))g.quality=Math.max(0,g.quality-dt*.07);if(g.quality<=.01)delete table[uid]}}
 export function getContact(b,team,uid){ensureContacts(b);return b.sensorContacts?.[team]?.[uid]||{uid,quality:0,level:'unknown',signal:0,apparentReadiness:1,apparentlyDisabled:false}}
 export function getGhosts(b,team,minQuality=.08){ensureContacts(b);return Object.values(b.sensorGhosts?.[team]||{}).filter(g=>g.quality>=minQuality)}
 export function knownEnemies(b,team,minQuality=.1){ensureContacts(b);return b.ships.filter(s=>s.team!==team&&!s.dead&&getContact(b,team,s.uid).quality>=minQuality)}
-const BASE_APPLY=Battle.prototype.applySystems;
-Battle.prototype.applySystems=function(s,dt){const out=BASE_APPLY.call(this,s,dt),arrays=alive(s,'sensor'),need=.04e6+arrays.reduce((n,m)=>n+(m.powerUse||0)*(m.hp/Math.max(1,m.maxHp||m.hp)),0);if(s.requestPower&&need>0){const before=s.powerBus?.usedMW||0;s.requestPower(need,'sensors');const supplied=Math.max(0,(s.powerBus?.usedMW||0)-before);s.sensorPowerFraction=clamp(supplied/need,.15,1);if(s.powerState){s.powerState.demandMW=s.powerBus.usedMW;s.powerState.requestedMW=s.powerBus.requestedMW;s.powerState.unmetMW=s.powerBus.unmetMW;s.powerState.groups=s.powerBus.groups}}else s.sensorPowerFraction=1;return out};
-const BASE_STEP=Battle.prototype.step;
-Battle.prototype.step=function(dt){ensureContacts(this);const out=BASE_STEP.call(this,dt);updateTeamContacts(this,'P',dt);updateTeamContacts(this,'E',dt);updateGhosts(this,'P',dt);updateGhosts(this,'E',dt);return out};
-const BASE_ENEMY=Battle.prototype.enemy;
-Battle.prototype.enemy=function(s){const known=knownEnemies(this,s.team,.08);if(!known.length)return null;const ordered=s.commandTargetId&&known.find(o=>o.uid===s.commandTargetId);if(ordered)return ordered;return known.sort((a,b)=>{const ca=getContact(this,s.team,a.uid),cb=getContact(this,s.team,b.uid);const va=(ca.apparentlyDisabled?.35:1),vb=(cb.apparentlyDisabled?.35:1);return dist(a,s)/va-dist(b,s)/vb})[0]||BASE_ENEMY.call(this,s)};
-const BASE_FIRE=Battle.prototype.fireWeapons;
-Battle.prototype.fireWeapons=function(s,e,powerBudget){if(!e)return BASE_FIRE.call(this,s,e,powerBudget);const c=getContact(this,s.team,e.uid);if(c.quality>=.82)return BASE_FIRE.call(this,s,e,powerBudget);const old=s.targetPriority;s.targetPriority=['hull'];try{return BASE_FIRE.call(this,s,e,powerBudget)}finally{s.targetPriority=old}};
+
+registerBattleHook('beforeStep','sensor-ensure-contacts',({battle})=>ensureContacts(battle),80);
+registerBattleHook('afterStep','sensor-update-contacts',({battle,dt})=>{updateTeamContacts(battle,'P',dt);updateTeamContacts(battle,'E',dt);updateGhosts(battle,'P',dt);updateGhosts(battle,'E',dt)},20);
+registerBattleHook('afterApplySystems','sensor-power',({ship:s})=>{const arrays=alive(s,'sensor'),need=.04e6+arrays.reduce((n,m)=>n+(m.powerUse||0)*(m.hp/Math.max(1,m.maxHp||m.hp)),0);if(s.requestPower&&need>0){const before=s.powerBus?.usedMW||0;s.requestPower(need,'sensors');const supplied=Math.max(0,(s.powerBus?.usedMW||0)-before);s.sensorPowerFraction=clamp(supplied/need,.15,1);if(s.powerState&&s.powerBus){s.powerState.demandMW=s.powerBus.usedMW;s.powerState.requestedMW=s.powerBus.requestedMW;s.powerState.unmetMW=s.powerBus.unmetMW;s.powerState.groups=s.powerBus.groups}}else s.sensorPowerFraction=1},20);
+registerBattleHook('resolveEnemy','sensor-target-resolution',(ctx)=>{const b=ctx.battle,s=ctx.ship,known=knownEnemies(b,s.team,.08);if(!known.length){ctx.result=null;return}const ordered=s.commandTargetId&&known.find(o=>o.uid===s.commandTargetId);ctx.result=ordered||known.sort((a,c)=>{const ca=getContact(b,s.team,a.uid),cc=getContact(b,s.team,c.uid),va=ca.apparentlyDisabled?.35:1,vc=cc.apparentlyDisabled?.35:1;return dist(a,s)/va-dist(c,s)/vc})[0]||ctx.result},50);
+registerBattleHook('beforeFireWeapons','sensor-fire-resolution',(ctx)=>{const e=ctx.target;if(!e)return;const c=getContact(ctx.battle,ctx.ship.team,e.uid);if(c.quality>=.82)return;ctx._sensorOldPriority=ctx.ship.targetPriority;ctx.ship.targetPriority=['hull']},80);
+registerBattleHook('afterFireWeapons','sensor-fire-restore',(ctx)=>{if(ctx._sensorOldPriority)ctx.ship.targetPriority=ctx._sensorOldPriority},-80);
+
 export function sensorSummary(b,observerTeam,target){const c=getContact(b,observerTeam,target.uid);return{...c,signature:shipSignature(target)}}
 if(typeof window!=='undefined'){window.__sensorGetContact=getContact;window.__sensorGetGhosts=getGhosts;window.__sensorKnownEnemies=knownEnemies;window.__sensorSummary=sensorSummary;window.__shipSignature=shipSignature}
