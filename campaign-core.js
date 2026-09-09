@@ -39,7 +39,7 @@ export function instantiateCampaignShip(entry,team='P'){
 export function activePlayerShips(){const ids=new Set(campaign.activeShipIds||[]);return campaign.ships.filter(s=>ids.has(s.id)&&s.status==='active')}
 export function snapshotShip(ship){return{modules:ship.modules.map(m=>({id:m.id,hp:Math.max(0,m.hp||0),ammo:m.ammo,fightersRemaining:m.fightersRemaining,energyMWh:m.energyMWh,charge:m.charge})),doctrineId:ship.doctrineId,formationDiscipline:ship.formationDiscipline}}
 export function persistBattleResults(battle){
-  if(!window.__campaignActive||battle._campaignPersisted)return;battle._campaignPersisted=true;
+  if(!battle?.campaignBattle||battle._campaignPersisted)return;battle._campaignPersisted=true;
   for(const ship of battle.ships.filter(s=>s.team==='P')){
     const entry=campaign.ships.find(x=>x.id===ship.campaignShipId);if(!entry)continue;
     entry.state=snapshotShip(ship);entry.battles=(entry.battles||0)+1;entry.xp=(entry.xp||0)+1;
