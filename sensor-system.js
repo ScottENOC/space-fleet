@@ -22,10 +22,13 @@ export function knownEnemies(b,team,minQuality=.1){ensureContacts(b);return b.sh
 const BASE_STEP=Battle.prototype.step;
 Battle.prototype.step=function(dt){ensureContacts(this);const out=BASE_STEP.call(this,dt);updateTeamContacts(this,'P',dt);updateTeamContacts(this,'E',dt);return out;};
 
-// AI may only deliberately target a sensor contact. A weak contact is enough to steer
-// toward; classification/resolution governs how much the UI reveals, not whether the
-// captain acknowledges that something is there.
 const BASE_ENEMY=Battle.prototype.enemy;
 Battle.prototype.enemy=function(s){const known=knownEnemies(this,s.team,.08);if(!known.length)return null;const ordered=s.commandTargetId&&known.find(o=>o.uid===s.commandTargetId);if(ordered)return ordered;return known.sort((a,b)=>dist(a,s)-dist(b,s))[0]||BASE_ENEMY.call(this,s);};
 
 export function sensorSummary(b,observerTeam,target){const c=getContact(b,observerTeam,target.uid);return{...c,signature:shipSignature(target)};}
+if(typeof window!=='undefined'){
+  window.__sensorGetContact=getContact;
+  window.__sensorKnownEnemies=knownEnemies;
+  window.__sensorSummary=sensorSummary;
+  window.__shipSignature=shipSignature;
+}
