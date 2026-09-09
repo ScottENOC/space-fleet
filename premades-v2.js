@@ -1,5 +1,6 @@
 import {HULLS,emptyBlueprint,canPlace,placeModule,MODULES} from './shipyard.js';
 import './craft-catalog.js';
+import './ew-catalog.js';
 
 function setStarterHull(){
   const h=HULLS.frigate_sparrow;
@@ -30,6 +31,11 @@ export function makePremade(hullId){
   if(n<=20){placeMirrorPair(b,missile,3,3,'front')}
   else if(n<=32){placeMirrorPair(b,missile,3,3,'front');placeOne(b,laser,3,'front');placeOne(b,'radiator_1',0,'rear')}
   else{placeMirrorPair(b,missile,3,3,'front');placeMirrorPair(b,laser,3,3,'front');if(n>55)placeMirrorPair(b,radiator,0,0,'rear')}
+
+  // EW remains optional rather than another mandatory support tax. Larger escorts get
+  // expendable decoys; cruisers/capitals can spare volume for active jamming.
+  if(n>70)placeOne(b,n>220?'decoy_2':'decoy_1',0,'centre');
+  if(n>130)placeOne(b,n>250?'jammer_3':n>200?'jammer_2':'jammer_1',0,'centre');
 
   if(carrier){
     const hangar=n>340?'hangar_3':n>250?'hangar_2':'hangar_1';
