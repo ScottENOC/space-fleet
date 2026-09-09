@@ -20,7 +20,9 @@ function render(){
  const h=getHeatState(s),radiators=(s.modules||[]).filter(m=>m.type==='radiator'),alive=radiators.filter(m=>m.hp>0&&!m.disabled).length;
  const el=document.createElement('section');el.className=`focusedHeat heat-${status(h).toLowerCase()}`;
  const net=(h.generatedMW||0)-(h.rejectedMW||0),warning=s.silentHeatWarning?' · SILENT ENDURANCE LOW':'';
- el.innerHTML=`<div class="heatHead"><b>THERMAL</b><span>${status(h)}${warning}</span></div><div class="heatTrack"><i style="width:${pct(h.fraction)}%"></i></div><div class="heatStats"><span>${pct(h.fraction)}% reservoir</span><span>${(h.generatedMW||0).toFixed(1)} MW waste</span><span>${(h.rejectedMW||0).toFixed(1)} MW rejected</span><span>${net>=0?'+':''}${net.toFixed(1)} MW net</span></div><div class="heatMeta"><span>${h.policyLabel||POLICIES[h.policy]?.label||'Balanced'} doctrine</span><span>Radiators ${alive}/${radiators.length}${h.runSilent?' · suppressed':''}</span></div>${h.throttle?`<div class="heatThrottle">AUTO: ${h.throttle}</div>`:''}`;
+ const integrated=(h.installedIntegratedMW??h.integratedMW??0),dedicated=(h.installedRadiatorMW||0);
+ const coolingLabel=dedicated>0?`${integrated.toFixed(1)} MW hull + ${dedicated.toFixed(1)} MW dedicated`:`${integrated.toFixed(1)} MW integrated hull cooling`;
+ el.innerHTML=`<div class="heatHead"><b>THERMAL</b><span>${status(h)}${warning}</span></div><div class="heatTrack"><i style="width:${pct(h.fraction)}%"></i></div><div class="heatStats"><span>${pct(h.fraction)}% reservoir</span><span>${(h.generatedMW||0).toFixed(1)} MW waste</span><span>${(h.rejectedMW||0).toFixed(1)} MW rejected</span><span>${net>=0?'+':''}${net.toFixed(1)} MW net</span></div><div class="heatMeta"><span>${h.policyLabel||POLICIES[h.policy]?.label||'Balanced'} doctrine</span><span>${coolingLabel}${h.runSilent?' · suppressed':''}</span>${dedicated>0?`<span>Dedicated radiators ${alive}/${radiators.length}</span>`:''}</div>${h.throttle?`<div class="heatThrottle">AUTO: ${h.throttle}</div>`:''}`;
  host.append(el);
 }
 installControls();setInterval(render,220);
