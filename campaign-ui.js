@@ -48,7 +48,8 @@ function resolveEncounter(e){
  if(e.kind==='fight'){
    if(!(campaign.activeShipIds||[]).length){alert('Assign at least one active ship.');return}
    campaign.pendingEncounter={kind:'fight',title:e.title,day:campaign.day};saveCampaign(campaign);window.__campaignActive=true;
-   document.querySelector('#reset')?.click();document.querySelector('[data-tab="battle"]')?.click();return;
+   document.querySelector('#reset')?.click();const b=window.__fleetBattle;if(b)b.campaignBattle=true;window.__campaignActive=false;
+   document.querySelector('[data-tab="battle"]')?.click();return;
  }
  advanceDay(1);
  if(e.kind==='trade'){const gain=140+Math.floor(R()*180);campaign.credits+=gain;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: escorted merchants successfully; earned ${gain} cr.`)}
@@ -67,6 +68,6 @@ function installBattleOutcomeControls(){
  document.querySelector('#withdrawFleet').onclick=()=>{const b=getBattle();if(b)orderWithdraw(b,b.ships.filter(s=>s.team==='P'&&!s.dead))};
  document.querySelector('#surrenderShips').onclick=()=>{const b=getBattle();if(b&&confirm('Order selected ship(s) to surrender?'))orderSurrender(b,selected())};
 }
-function watchBattle(){const b=getBattle();if(!b||!window.__campaignActive)return;if(b.winner&&!b._campaignPersisted){persistBattleResults(b);campaign.pendingEncounter=null;campaign.day+=1;if(b.winner==='P'){campaign.credits+=180;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: enemy force defeated; 180 cr salvage recovered.`)}else campaign.log.push(`Day ${campaign.day}: fleet action ended without victory.`);saveCampaign(campaign);render()}}
+function watchBattle(){const b=getBattle();if(!b||!b.campaignBattle)return;if(b.winner&&!b._campaignPersisted){persistBattleResults(b);campaign.pendingEncounter=null;campaign.day+=1;if(b.winner==='P'){campaign.credits+=180;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: enemy force defeated; 180 cr salvage recovered.`)}else campaign.log.push(`Day ${campaign.day}: fleet action ended without victory.`);saveCampaign(campaign);render()}}
 
 install();installBattleOutcomeControls();setInterval(watchBattle,400);
