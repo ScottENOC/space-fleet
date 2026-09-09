@@ -37,23 +37,28 @@ function render(){
  document.querySelector('#campaignLog').innerHTML=[...(campaign.log||[])].slice(-12).reverse().map(x=>`<div>${esc(x)}</div>`).join('');
 }
 function resolveEncounter(e){
- if(e.kind==='fight'){if(!(campaign.activeShipIds||[]).length){alert('Assign at least one active ship.');return}campaign.pendingEncounter={kind:'fight',title:e.title,day:campaign.day};saveCampaign(campaign);window.__campaignActive=true;window.__fleetMain?.reset?.();window.__fleetMain?.showTab?.('battle');return;}
+ if(e.kind==='fight'){
+   if(!(campaign.activeShipIds||[]).length){alert('Assign at least one active ship.');return}
+   campaign.pendingEncounter={kind:'fight',title:e.title,day:campaign.day};saveCampaign(campaign);window.__campaignActive=true;
+   document.querySelector('#reset')?.click();document.querySelector('[data-tab="battle"]')?.click();return;
+ }
  advanceDay(1);
  if(e.kind==='trade'){const gain=140+Math.floor(R()*180);campaign.credits+=gain;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: escorted merchants successfully; earned ${gain} cr.`)}
- else if(e.kind==='explore'){const gain=15+Math.floor(R()*25);campaign.supplies+=gain;campaign.plotStage+=R()<.35?1:0;campaign.log.push(`Day ${campaign.day}: surveyed the uncharted signal; recovered ${gain} supplies${campaign.plotStage?', and found a clue connected to the wider mystery':''}.`)}
+ else if(e.kind==='explore'){const gain=15+Math.floor(R()*25);campaign.supplies+=gain;const clue=R()<.35;if(clue)campaign.plotStage+=1;campaign.log.push(`Day ${campaign.day}: surveyed the uncharted signal; recovered ${gain} supplies${clue?', and found a clue connected to the wider mystery':''}.`)}
  else if(e.kind==='distress'){const cost=20+Math.floor(R()*20);campaign.supplies=Math.max(0,campaign.supplies-cost);campaign.reputation+=2;campaign.log.push(`Day ${campaign.day}: rescued civilians at a cost of ${cost} supplies.`)}
  else {const gain=90+Math.floor(R()*170);campaign.credits+=gain;campaign.log.push(`Day ${campaign.day}: salvaged the derelict for ${gain} cr.`)}
  saveCampaign(campaign);currentChoices=choices();render();
 }
 
+function getBattle(){return window.__fleetBattle||null}
 function installBattleOutcomeControls(){
  const orders=document.querySelector('.orders');if(!orders||document.querySelector('#withdrawShips'))return;
  const box=document.createElement('div');box.className='outcomeControls';box.innerHTML=`<h2>Survival orders</h2><button id="withdrawShips">Withdraw selected ship(s)</button><button id="withdrawFleet">Withdraw fleet</button><button id="surrenderShips">Surrender selected ship(s)</button><p>Withdrawal is physical. Ships must open enough range to escape; the enemy can pursue.</p>`;orders.append(box);
- const selected=()=>{const b=window.__fleetMain?.getBattle?.();if(!b)return[];const who=document.querySelector('#orderShips')?.value||'all';return b.ships.filter(s=>s.team==='P'&&!s.dead&&(who==='all'||s.uid===who))};
- document.querySelector('#withdrawShips').onclick=()=>{const b=window.__fleetMain?.getBattle?.();if(b)orderWithdraw(b,selected())};
- document.querySelector('#withdrawFleet').onclick=()=>{const b=window.__fleetMain?.getBattle?.();if(b)orderWithdraw(b,b.ships.filter(s=>s.team==='P'&&!s.dead))};
- document.querySelector('#surrenderShips').onclick=()=>{const b=window.__fleetMain?.getBattle?.();if(b&&confirm('Order selected ship(s) to surrender?'))orderSurrender(b,selected())};
+ const selected=()=>{const b=getBattle();if(!b)return[];const who=document.querySelector('#orderShips')?.value||'all';return b.ships.filter(s=>s.team==='P'&&!s.dead&&(who==='all'||s.uid===who))};
+ document.querySelector('#withdrawShips').onclick=()=>{const b=getBattle();if(b)orderWithdraw(b,selected())};
+ document.querySelector('#withdrawFleet').onclick=()=>{const b=getBattle();if(b)orderWithdraw(b,b.ships.filter(s=>s.team==='P'&&!s.dead))};
+ document.querySelector('#surrenderShips').onclick=()=>{const b=getBattle();if(b&&confirm('Order selected ship(s) to surrender?'))orderSurrender(b,selected())};
 }
-function watchBattle(){const b=window.__fleetMain?.getBattle?.();if(!b||!window.__campaignActive)return;if(b.winner&&!b._campaignPersisted){persistBattleResults(b);campaign.pendingEncounter=null;campaign.day+=1;if(b.winner==='P'){campaign.credits+=180;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: enemy force defeated; 180 cr salvage recovered.`)}else campaign.log.push(`Day ${campaign.day}: fleet action ended without victory.`);saveCampaign(campaign);render()}}
+function watchBattle(){const b=getBattle();if(!b||!window.__campaignActive)return;if(b.winner&&!b._campaignPersisted){persistBattleResults(b);campaign.pendingEncounter=null;campaign.day+=1;if(b.winner==='P'){campaign.credits+=180;campaign.reputation+=1;campaign.log.push(`Day ${campaign.day}: enemy force defeated; 180 cr salvage recovered.`)}else campaign.log.push(`Day ${campaign.day}: fleet action ended without victory.`);saveCampaign(campaign);render()}}
 
 install();installBattleOutcomeControls();setInterval(watchBattle,400);
