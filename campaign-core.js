@@ -2,7 +2,6 @@ import {blueprintToShip} from './shipyard.js';
 import {makePremade} from './premades.js';
 
 const KEY='spaceFleet.campaign.v1';
-const clone=x=>JSON.parse(JSON.stringify(x));
 const nowId=()=>Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);
 
 function starterShip(name,hullId,ai='pursuit'){
@@ -20,21 +19,24 @@ export function resetCampaign(){const c=defaultCampaign();c.activeShipIds=c.ship
 export let campaign=loadCampaign();
 export function refreshCampaign(){campaign=loadCampaign();return campaign}
 
-function applySavedState(ship,entry){
+export function applySavedState(ship,entry){
   const st=entry.state;if(!st)return ship;
   const byId=new Map(ship.modules.map(m=>[m.id,m]));
-  for(const sm of st.modules||[]){const m=byId.get(sm.id);if(!m)continue;m.hp=Math.min(m.maxHp||m.hp,sm.hp);if(Number.isFinite(sm.ammo)&&Number.isFinite(m.ammo))m.ammo=sm.ammo;if(Number.isFinite(sm.fightersRemaining))m.fightersRemaining=sm.fightersRemaining;if(Number.isFinite(sm.energyMWh))m.energyMWh=sm.energyMWh;if(Number.isFinite(sm.charge))m.charge=sm.charge;}
+  for(const sm of st.modules||[]){
+    const m=byId.get(sm.id);if(!m)continue;
+    m.hp=Math.min(m.maxHp||m.hp,sm.hp);
+    if(Number.isFinite(sm.ammo)&&Number.isFinite(m.ammo))m.ammo=sm.ammo;
+    if(Number.isFinite(sm.fightersRemaining))m.fightersRemaining=sm.fightersRemaining;
+    if(Number.isFinite(sm.energyMWh))m.energyMWh=sm.energyMWh;
+    if(Number.isFinite(sm.charge))m.charge=sm.charge;
+  }
   ship.doctrineId=st.doctrineId||ship.doctrineId;ship.formationDiscipline=st.formationDiscipline||ship.formationDiscipline;
   return ship;
 }
 export function instantiateCampaignShip(entry,team='P'){
-  const ship=blueprintToShip(entry.blueprint,team);ship.name=entry.name;ship.campaignShipId=entry.id;ship.campaignXp=entry.xp||0;applySavedState(ship,entry);return ship;
+  const ship=blueprintToShip(entry.blueprint,team);ship.name=entry.name;ship.campaignShipId=entry.id;ship.campaignXp=entry.xp||0;return ship;
 }
 export function activePlayerShips(){const ids=new Set(campaign.activeShipIds||[]);return campaign.ships.filter(s=>ids.has(s.id)&&s.status==='active')}
-export function campaignBuildSide(bp,count,team){
-  if(team!=='P'||!window.__campaignActive)return null;
-  const list=activePlayerShips();return list.length?list.map(s=>instantiateCampaignShip(s,'P')):null;
-}
 export function snapshotShip(ship){return{modules:ship.modules.map(m=>({id:m.id,hp:Math.max(0,m.hp||0),ammo:m.ammo,fightersRemaining:m.fightersRemaining,energyMWh:m.energyMWh,charge:m.charge})),doctrineId:ship.doctrineId,formationDiscipline:ship.formationDiscipline}}
 export function persistBattleResults(battle){
   if(!window.__campaignActive||battle._campaignPersisted)return;battle._campaignPersisted=true;
