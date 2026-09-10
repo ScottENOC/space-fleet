@@ -32,11 +32,14 @@ function shipContext(s){
 function liveOrdnanceTarget(o){const b=battle();if(!b)return null;if(o.targetOrdnance&&o.targetOrdnance.hp>0&&(b.ordnance||[]).includes(o.targetOrdnance))return o.targetOrdnance;if(o.target&&!o.target.dead)return o.target;return null}
 function propulsionState(o){
  if(o.kind!=='missile')return '';
- const b=battle(),fuel=Math.max(0,o.fuel||0),target=liveOrdnanceTarget(o);
- if(fuel<=0)return 'Motor spent · ballistic coast';
- if((b?.t||0)<(o.guidanceActiveAt??0))return 'Motor burning · launch clearance';
- if(target)return 'Motor burning · guided';
- return 'Motor idle · no live target';
+ const b=battle(),fuel=Math.max(0,o.fuel||0),target=liveOrdnanceTarget(o),reserve=Math.max(0,o.terminalReserve??1);
+ if(fuel<=0||o.motorMode==='spent')return 'Motor spent · ballistic coast';
+ if((b?.t||0)<(o.guidanceActiveAt??0)||o.motorMode==='clearance')return 'Motor burning · launch clearance';
+ if(o.motorMode==='reserve')return `Coasting · ${fuel.toFixed(1)} s terminal reserve`;
+ if(o.motorMode==='terminal')return 'Motor burning · terminal guidance';
+ if(o.motorMode==='midcourse')return `Motor burning · guided · ${reserve.toFixed(1)} s reserved`;
+ if(!target||o.motorMode==='idle')return 'Motor idle · no live target';
+ return 'Motor burning · guided';
 }
 function ordnanceContext(o){
  const speed=Math.hypot(o.vx||0,o.vy||0).toFixed(0),owner=o.owner?.name||'Unknown launcher',target=liveOrdnanceTarget(o),targetName=target?.name||target?.kind||'No live target',fuel=Number.isFinite(o.fuel)?`${Math.max(0,o.fuel).toFixed(1)} s`:'—';
