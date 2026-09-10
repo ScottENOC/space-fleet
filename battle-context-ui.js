@@ -2,6 +2,7 @@ const $=s=>document.querySelector(s);
 const mobile=()=>matchMedia('(max-width:760px)').matches;
 let selected=null;
 
+function installStyles(){if(document.querySelector('link[data-battle-context-ui]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='battle-context-ui.css?v=63';l.dataset.battleContextUi='1';document.head.append(l)}
 function battle(){return window.__fleetBattle}
 function focusShip(){const b=battle(),uid=$('#focusShip')?.value;return b?.ships?.find(s=>s.uid===uid)||b?.ships?.find(s=>s.team==='P'&&!s.dead)||null}
 function cameraState(){
@@ -45,7 +46,7 @@ function showContext(o){
 }
 function closeContext(){selected=null;$('#battleContextSheet')?.classList.remove('open');$('#mobileSelectionRing')?.classList.remove('show')}
 function install(){
- const canvas=$('#space'),hud=$('.battleHud');if(!canvas||!hud||$('#battleContextSheet'))return;
+ installStyles();const canvas=$('#space'),hud=$('.battleHud');if(!canvas||!hud||$('#battleContextSheet'))return;
  const sheet=document.createElement('section');sheet.id='battleContextSheet';sheet.className='hudPanel';document.body.append(sheet);
  const ring=document.createElement('div');ring.id='mobileSelectionRing';document.body.append(ring);
  let down=null;
