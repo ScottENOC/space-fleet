@@ -1,18 +1,17 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const mobile=()=>matchMedia('(max-width:760px)').matches;
 
+function installStyles(){if(document.querySelector('link[data-mobile-ui]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='mobile-ui.css?v=61';l.dataset.mobileUi='1';document.head.append(l)}
 function lastName(name=''){const bits=String(name).trim().split(/\s+/);return bits[bits.length-1]||name}
 function roleAbbrev(title=''){return({Captain:'Cpt','Chief Engineer':'Eng','Chief Gunner':'Gun','Tactical Officer':'Tac','Damage Control Officer':'DC','Executive Officer':'XO',Helmsman:'Helm',CAG:'CAG'})[title]||title.split(/\s+/).map(x=>x[0]).join('').slice(0,4)}
 function compactTraffic(){
- const b=window.__fleetBattle;
  for(const card of $$('#crewInbox .crewReport')){
   const meta=card.querySelector('.reportMeta'),ship=meta?.querySelector('b'),detail=meta?.querySelector('span'),severity=meta?.querySelector('em');
   if(!meta||!ship||!detail)continue;
   const raw=detail.dataset.raw||detail.textContent||'';detail.dataset.raw=raw;
   const [title='',officer='']=raw.split(' · ');
-  const compact=`${ship.dataset.raw||ship.textContent} — ${roleAbbrev(title)} ${lastName(officer)}`;
   if(!ship.dataset.raw)ship.dataset.raw=ship.textContent;
-  ship.textContent=compact;
+  ship.textContent=`${ship.dataset.raw} — ${roleAbbrev(title)} ${lastName(officer)}`;
   if(severity&&severity.textContent!=='CRITICAL')severity.textContent='';
  }
 }
@@ -20,8 +19,7 @@ function closeBattleSheets(except=null){for(const id of ['hudTraffic','hudFleetS
 function installBattleControls(){
  const hud=$('.battleHud');if(!hud||$('#mobileCommsButton'))return;
  const right=$('#hudTopRight');
- const comms=document.createElement('button');comms.id='mobileCommsButton';comms.textContent='Comms';
- right?.append(comms);
+ const comms=document.createElement('button');comms.id='mobileCommsButton';comms.textContent='Comms';right?.append(comms);
  const contacts=document.createElement('button');contacts.id='mobileContactsButton';contacts.textContent='Contacts';hud.append(contacts);
  const fleet=document.createElement('button');fleet.id='mobileFleetButton';fleet.textContent='Fleet';hud.append(fleet);
  const traffic=$('#hudTraffic'),strip=$('#hudFleetStrip'),enemy=$('#hudEnemyStrip'),ship=$('#hudShipInfo');
@@ -29,11 +27,10 @@ function installBattleControls(){
  contacts.onclick=()=>{if(!mobile())return;const open=!enemy?.classList.contains('mobileOpen');closeBattleSheets(open?enemy:null);enemy?.classList.toggle('mobileOpen',open)};
  fleet.onclick=()=>{if(!mobile())return;const open=!strip?.classList.contains('mobileOpen');closeBattleSheets(open?strip:null);strip?.classList.toggle('mobileOpen',open)};
  ship?.addEventListener('click',e=>{if(!mobile()||e.target.closest('button,select,input'))return;ship.classList.toggle('mobileExpanded')});
- document.addEventListener('pointerdown',e=>{if(!mobile())return;const inside=e.target.closest('#hudTraffic,#hudFleetStrip,#hudEnemyStrip,#mobileCommsButton,#mobileFleetButton,#mobileContactsButton');if(!inside)closeBattleSheets()},true);
+ document.addEventListener('pointerdown',e=>{if(!mobile())return;const inside=e.target.closest('#hudTraffic,#hudFleetStrip,#hudEnemyStrip,#mobileCommsButton,#mobileFleetButton,#mobileContactsButton,#hudShipInfo');if(!inside)closeBattleSheets()},true);
 }
 function updateBattleControls(){
- if(!mobile())return;
- const b=window.__fleetBattle;if(!b)return;
+ if(!mobile())return;const b=window.__fleetBattle;if(!b)return;
  const all=(b.crewInbox||[]).filter(r=>b.ships?.find(s=>s.uid===r.shipUid)?.team==='P'),open=all.filter(r=>r.request&&r.status==='open').length;
  const comms=$('#mobileCommsButton');if(comms){comms.textContent=open?`Comms ${open}`:'Comms';comms.classList.toggle('hasOpen',open>0)}
  const contacts=$('#mobileContactsButton'),enemies=(b.ships||[]).filter(s=>s.team==='E'&&!s.dead).length;if(contacts)contacts.textContent=`Contacts ${enemies}`;
@@ -58,6 +55,6 @@ function installStandaloneHints(){
  for(const [name,content] of metas)if(!document.querySelector(`meta[name="${name}"]`)){const m=document.createElement('meta');m.name=name;m.content=content;document.head.append(m)}
 }
 
-installStandaloneHints();installBattleControls();installShipyardSheet();
+installStyles();installStandaloneHints();installBattleControls();installShipyardSheet();
 addEventListener('resize',()=>{closeBattleSheets();syncShipyardButton()});
 setInterval(()=>{installBattleControls();installShipyardSheet();updateBattleControls();syncShipyardButton()},180);
