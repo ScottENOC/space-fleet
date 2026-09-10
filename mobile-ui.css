@@ -1,0 +1,49 @@
+/* v61 mobile-first tactical HUD: preserve the battle as the primary surface. */
+@media(max-width:760px){
+  :root{--mobile-edge:8px}
+  .hudPanel{background:rgba(5,10,18,.34);border-color:rgba(126,166,207,.22);box-shadow:0 3px 12px rgba(0,0,0,.16);backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  .hudIconButton,.hudToggle{background:rgba(5,10,18,.48);box-shadow:none;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  #hudTopLeft{left:max(var(--mobile-edge),env(safe-area-inset-left));top:max(var(--mobile-edge),env(safe-area-inset-top));gap:6px}
+  #hudTopLeft:before{display:none}
+  #hudTopLeft #hudFleetView{display:none!important}
+  #hudTopRight{right:max(var(--mobile-edge),env(safe-area-inset-right));top:max(var(--mobile-edge),env(safe-area-inset-top));gap:6px}
+  #hudDoctrineWrap{display:none}
+  #mobileCommsButton,#mobileContactsButton,#mobileFleetButton{display:block;pointer-events:auto;border:1px solid rgba(126,166,207,.28);background:rgba(5,10,18,.50);color:#eaf2fb;border-radius:8px;padding:7px 9px;font:650 11px system-ui,-apple-system,sans-serif}
+  #mobileCommsButton.hasOpen{border-color:rgba(225,126,80,.72);color:#ffd0ae}
+  #mobileContactsButton{position:absolute;left:50%;top:max(var(--mobile-edge),env(safe-area-inset-top));transform:translateX(-50%);z-index:2}
+  #hudEnemyStrip{display:none;left:8px;right:8px;top:48px;transform:none;max-width:none;height:64px;background:rgba(5,10,18,.74)}
+  #hudEnemyStrip.mobileOpen{display:flex}
+  #hudShipInfo{left:max(var(--mobile-edge),env(safe-area-inset-left));bottom:calc(max(8px,env(safe-area-inset-bottom)) + 38px);width:min(236px,68vw);min-height:0;padding:7px 8px;cursor:pointer;background:rgba(5,10,18,.42)}
+  #hudShipInfo .focusName{margin-bottom:5px}.focusName b{font-size:13px}.focusName span{font-size:8px}
+  #hudShipInfo .focusBars{gap:3px;margin-bottom:0}.focusBar{grid-template-columns:43px 1fr 31px;gap:4px;font-size:9px}.barTrack{height:4px}
+  #hudShipInfo .focusGrid{display:none}
+  #hudShipInfo.mobileExpanded{width:min(310px,88vw);background:rgba(5,10,18,.86)}
+  #hudShipInfo.mobileExpanded .focusGrid{display:grid;margin-top:7px;grid-template-columns:1fr 1fr;gap:4px 8px}
+  #hudTraffic{display:none;position:absolute;left:8px;right:8px;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 44px);width:auto;height:min(46vh,350px);background:rgba(5,10,18,.91);border-color:rgba(126,166,207,.36);z-index:5}
+  #hudTraffic.mobileOpen{display:flex}
+  #hudFleetStrip{display:none;left:8px;right:8px;bottom:calc(max(8px,env(safe-area-inset-bottom)) + 42px);transform:none;max-width:none;height:68px;background:rgba(5,10,18,.84);z-index:4}
+  #hudFleetStrip.mobileOpen{display:flex}
+  #mobileFleetButton{position:absolute;left:50%;bottom:max(7px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3}
+  .fleetChip{width:74px;min-width:74px;height:52px;grid-template-columns:34px 1fr}.fleetSilhouette{width:34px;height:34px}.fleetChipText b{font-size:9px}.fleetChipText{font-size:9px}
+  .hudPopover{top:40px;max-height:58vh;background:rgba(5,10,18,.93);backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  #hudOrdersWrap .hudToggle{font-size:11px;padding:7px 9px}
+  #hudTraffic .crewPanel{padding:8px}
+  #hudTraffic .crewHead{margin-bottom:3px}.crewHead h2{font-size:11px!important}.crewHead span{font-size:10px}
+  #hudTraffic .crewReport{padding:6px 7px;margin:4px 0;background:rgba(10,18,29,.52)}
+  #hudTraffic .crewReport.severity4{border-left-color:#dc925d}.crewReport.severity5{border-left-color:#e06161;background:rgba(48,14,18,.46)}
+  .reportMeta{display:block!important}.reportMeta b{display:block;font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.reportMeta span{display:none!important}.reportMeta em{display:none!important}.crewReport.severity5 .reportMeta em{display:inline!important;float:right;margin-top:-14px;font-size:9px;color:#ff9b9b}
+  .crewReport p{font-size:11px!important;line-height:1.25!important;margin:4px 0!important}.requestLine{font-size:10px!important;margin:4px 0}.requestActions{gap:5px}.requestActions button{padding:6px 7px!important;font-size:11px}.crewReport>small{display:none}
+
+  /* Shipyard becomes grid-first; components live in an on-demand bottom sheet. */
+  #shipyard.active{padding-bottom:56px}
+  .yardbar{padding:7px 8px;gap:5px}.yardbar label{font-size:11px}.yardbar button,.yardbar select,.yardbar input{padding:6px 7px;font-size:11px}
+  .fleetSetup{padding:6px 8px;gap:5px}.fleetSetup label{font-size:11px}
+  .yardlayout{display:block;min-height:0}.framearea{min-height:calc(100dvh - 170px);padding:12px 4px 72px}
+  .palette{display:none;position:fixed;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));z-index:75;max-height:72dvh;overflow:auto;padding:10px;background:rgba(7,13,22,.96);border:1px solid rgba(126,166,207,.38);border-radius:13px;box-shadow:0 14px 48px rgba(0,0,0,.45)}
+  .palette.mobileOpen{display:block}.palette h2{font-size:13px;margin:0 0 7px}.palette #palette{display:grid;grid-template-columns:1fr!important;gap:3px!important}.palette .module{margin:2px 0;padding:7px 8px}.palette .module small{font-size:10px}
+  .mobilePaletteHead{display:flex;align-items:center;justify-content:space-between;gap:8px;position:sticky;top:-10px;background:rgba(7,13,22,.98);padding:8px 0 6px;z-index:2}.mobilePaletteHead b{font-size:13px}.mobilePaletteHead button{padding:5px 8px}
+  .mobilePaletteFilters{display:flex;gap:5px;overflow-x:auto;padding:1px 0 6px;position:sticky;top:30px;background:rgba(7,13,22,.98);z-index:2}.mobilePaletteFilters button{white-space:nowrap;padding:5px 7px;font-size:10px}.mobilePaletteFilters button.active{background:#365470}
+  #mobileComponentsButton{display:block;position:fixed;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:65;padding:9px 12px;font-weight:700;background:rgba(16,30,45,.92)}
+  #skirmishLaunch{right:auto;left:max(10px,env(safe-area-inset-left));bottom:max(10px,env(safe-area-inset-bottom));padding:9px 12px}
+}
+@media(min-width:761px){#mobileCommsButton,#mobileContactsButton,#mobileFleetButton,#mobileComponentsButton,.mobilePaletteHead,.mobilePaletteFilters{display:none!important}}
