@@ -1,0 +1,11 @@
+{
+  "name": "Frontier Command",
+  "short_name": "Frontier",
+  "description": "Independent fleet command and Newtonian space combat.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#03070d",
+  "theme_color": "#03070d"
+}
