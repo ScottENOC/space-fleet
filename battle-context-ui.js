@@ -29,21 +29,29 @@ function shipContext(s){
  const hp=Math.round(healthFraction(s)*100),speed=Math.hypot(s.vx||0,s.vy||0).toFixed(0),target=s.commandTargetId?battle()?.ships?.find(x=>x.uid===s.commandTargetId)?.name:null;
  return `<div class="contextHead"><div><b>${esc(s.name)}</b><small>${s.team==='P'?'FRIENDLY':'HOSTILE'} · ${esc(s.shipClass||'SHIP')}</small></div><button data-close-context>×</button></div><div class="contextSummary"><span>Hull <b>${hp}%</b></span><span>Speed <b>${speed} m/s</b></span></div><div class="contextStatus">${esc(s.order||target&&`Targeting ${target}`||'Underway')}</div>${s.team==='P'?'<div class="contextActions"><button data-orders>Orders</button><button data-fleet>Fleet</button></div>':'<div class="contextActions"><button data-target>Target with…</button><button data-contacts>Contacts</button></div>'}`;
 }
-function ordnanceContext(o){
- const speed=Math.hypot(o.vx||0,o.vy||0).toFixed(0),owner=o.owner?.name||'Unknown launcher',target=o.target?.name||o.targetOrdnance?.kind||'No current target',fuel=Number.isFinite(o.fuel)?`${Math.max(0,o.fuel).toFixed(1)} s`:'—';
- const label=o.kind==='sensorDrone'?'Sensor drone':o.kind==='decoy'?'Decoy':o.kind==='fighter'?'Fighter':o.kind==='missile'?'Missile':(o.kind||'Ordnance');
- return `<div class="contextHead"><div><b>${esc(label)}</b><small>${o.team==='P'?'FRIENDLY':'HOSTILE'} ORDNANCE</small></div><button data-close-context>×</button></div><div class="contextSummary"><span>Speed <b>${speed} m/s</b></span><span>Fuel <b>${fuel}</b></span></div><div class="contextStatus">From ${esc(owner)} · ${esc(target)}</div>`;
+function liveOrdnanceTarget(o){const b=battle();if(!b)return null;if(o.targetOrdnance&&o.targetOrdnance.hp>0&&(b.ordnance||[]).includes(o.targetOrdnance))return o.targetOrdnance;if(o.target&&!o.target.dead)return o.target;return null}
+function propulsionState(o){
+ if(o.kind!=='missile')return '';
+ const b=battle(),fuel=Math.max(0,o.fuel||0),target=liveOrdnanceTarget(o);
+ if(fuel<=0)return 'Motor spent · ballistic coast';
+ if((b?.t||0)<(o.guidanceActiveAt??0))return 'Motor burning · launch clearance';
+ if(target)return 'Motor burning · guided';
+ return 'Motor idle · no live target';
 }
-function showContext(o){
- selected=o;const sheet=$('#battleContextSheet');if(!sheet)return;
- if(o?.uid)setFocus(o);
- sheet.innerHTML=o?.uid?shipContext(o):ordnanceContext(o);sheet.classList.add('open');
+function ordnanceContext(o){
+ const speed=Math.hypot(o.vx||0,o.vy||0).toFixed(0),owner=o.owner?.name||'Unknown launcher',target=liveOrdnanceTarget(o),targetName=target?.name||target?.kind||'No live target',fuel=Number.isFinite(o.fuel)?`${Math.max(0,o.fuel).toFixed(1)} s`:'—';
+ const label=o.kind==='sensorDrone'?'Sensor drone':o.kind==='decoy'?'Decoy':o.kind==='fighter'?'Fighter':o.kind==='missile'?'Missile':(o.kind||'Ordnance'),state=propulsionState(o);
+ return `<div class="contextHead"><div><b>${esc(label)}</b><small>${o.team==='P'?'FRIENDLY':'HOSTILE'} ORDNANCE</small></div><button data-close-context>×</button></div><div class="contextSummary"><span>Speed <b>${speed} m/s</b></span><span>Fuel <b>${fuel}</b></span></div><div class="contextStatus">${state?`${esc(state)}<br>`:''}From ${esc(owner)} · ${esc(targetName)}</div>`;
+}
+function bindContext(sheet,o){
  sheet.querySelector('[data-close-context]')?.addEventListener('click',closeContext);
  sheet.querySelector('[data-orders]')?.addEventListener('click',()=>{$('#hudOrdersWrap .hudToggle')?.click()});
  sheet.querySelector('[data-fleet]')?.addEventListener('click',()=>{$('#mobileFleetButton')?.click()});
  sheet.querySelector('[data-contacts]')?.addEventListener('click',()=>{$('#mobileContactsButton')?.click()});
  sheet.querySelector('[data-target]')?.addEventListener('click',()=>{const target=$('#orderTarget');if(target&&o?.uid){target.value=o.uid;$('#hudOrdersWrap .hudToggle')?.click()}});
 }
+function renderContext(o){const sheet=$('#battleContextSheet');if(!sheet||!o)return;sheet.innerHTML=o?.uid?shipContext(o):ordnanceContext(o);sheet.classList.add('open');bindContext(sheet,o)}
+function showContext(o){selected=o;if(o?.uid)setFocus(o);renderContext(o)}
 function closeContext(){selected=null;$('#battleContextSheet')?.classList.remove('open');$('#mobileSelectionRing')?.classList.remove('show')}
 function install(){
  installStyles();const canvas=$('#space'),hud=$('.battleHud');if(!canvas||!hud||$('#battleContextSheet'))return;
@@ -56,6 +64,7 @@ function install(){
 function refreshSelection(){
  if(!mobile()||!selected)return;const b=battle(),c=cameraState(),ring=$('#mobileSelectionRing');if(!b||!c||!ring)return;
  const live=selected.uid?b.ships.includes(selected)&&!selected.dead:(b.ordnance||[]).includes(selected)&&selected.hp>0;if(!live){closeContext();return}
+ renderContext(selected);
  const [x,y]=toScreen(selected.x,selected.y,c),size=selected.uid?Math.max(30,Math.min(82,(selected.radius||12)*c.scale*2+18)):34;
  ring.style.left=`${x}px`;ring.style.top=`${y}px`;ring.style.width=`${size}px`;ring.style.height=`${size}px`;ring.classList.add('show');
 }
