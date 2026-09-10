@@ -1,4 +1,5 @@
 import {HULLS} from './shipyard.js';
+import './missile-loadouts.js?v=60';
 
 function rowsFromWidths(widths){const max=Math.max(...widths);return widths.map(w=>'.'.repeat((max-w)/2)+'#'.repeat(w)+'.'.repeat((max-w)/2))}
 function diamondRows(peak,plateau=1){const up=[];for(let w=1;w<=peak;w+=2)up.push(w);return rowsFromWidths([...up,...Array(Math.max(0,plateau-1)).fill(peak),...up.slice(0,-1).reverse()])}
