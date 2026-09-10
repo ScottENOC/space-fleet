@@ -1,0 +1,11 @@
+@media(max-width:760px){
+ #battleContextSheet{display:none;position:fixed;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));bottom:calc(max(8px,env(safe-area-inset-bottom)) + 42px);z-index:58;padding:10px 11px;background:rgba(5,10,18,.90);border-color:rgba(126,166,207,.34);box-shadow:0 8px 28px rgba(0,0,0,.30);backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+ #battleContextSheet.open{display:block}
+ .contextHead{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.contextHead>div{min-width:0}.contextHead b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.contextHead small{display:block;margin-top:2px;font-size:8px;letter-spacing:.08em;color:#91a7bd}.contextHead>button{border:0;background:transparent;padding:0 2px;font-size:20px;line-height:1;color:#b9c8d8;box-shadow:none}
+ .contextSummary{display:flex;gap:14px;margin-top:8px;font-size:10px;color:#91a7bd}.contextSummary b{color:#eaf2fb;font-weight:650}.contextStatus{margin-top:6px;font-size:10.5px;line-height:1.3;color:#c6d3df;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .contextActions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}.contextActions button{padding:7px 8px;font-size:11px}
+ #mobileSelectionRing{display:none;position:fixed;z-index:44;transform:translate(-50%,-50%);border:1px solid rgba(235,246,255,.88);border-radius:50%;box-shadow:0 0 0 2px rgba(4,8,14,.45),0 0 14px rgba(137,204,244,.22);pointer-events:none}
+ #mobileSelectionRing.show{display:block}
+ #hudShipInfo.mobileExpanded{display:none!important}
+}
+@media(min-width:761px){#battleContextSheet,#mobileSelectionRing{display:none!important}}
