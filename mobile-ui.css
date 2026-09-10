@@ -34,6 +34,12 @@
   .reportMeta{display:block!important}.reportMeta b{display:block;font-size:11px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.reportMeta span{display:none!important}.reportMeta em{display:none!important}.crewReport.severity5 .reportMeta em{display:inline!important;float:right;margin-top:-14px;font-size:9px;color:#ff9b9b}
   .crewReport p{font-size:11px!important;line-height:1.25!important;margin:4px 0!important}.requestLine{font-size:10px!important;margin:4px 0}.requestActions{gap:5px}.requestActions button{padding:6px 7px!important;font-size:11px}.crewReport>small{display:none}
 
+  /* Non-battle screens must begin below iOS status / app chrome and leave room for the menu button. */
+  #campaign.active,#shipyard.active,.doctrinePane.active{padding-top:max(8px,env(safe-area-inset-top));padding-left:max(0px,env(safe-area-inset-left));padding-right:max(0px,env(safe-area-inset-right))}
+  #globalMenuButton.nonBattleMenu{top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right))}
+  .campaignHead,.editorHead{padding-right:52px!important}
+  #shipyard.active>.yardbar{padding-right:56px}
+
   /* Shipyard becomes grid-first; components live in an on-demand bottom sheet. */
   #shipyard.active{padding-bottom:56px}
   .yardbar{padding:7px 8px;gap:5px}.yardbar label{font-size:11px}.yardbar button,.yardbar select,.yardbar input{padding:6px 7px;font-size:11px}
