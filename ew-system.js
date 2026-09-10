@@ -19,7 +19,7 @@ function launchDecoy(b,s,m){if((m.ammo||0)<=0)return false;m.ammo--;m.cooldownLe
 function maybeAutoDecoys(b,s){if(s.runSilent)return;const posture=DECOY_POSTURES[s.decoyPosture||'standard']||DECOY_POSTURES.standard,missiles=incomingMissiles(b,s);if(missiles.length<posture.trigger)return;s._decoyClock??=0;if(b.t<s._decoyClock)return;const launcher=decoyLaunchers(s)[0];if(launcher&&launchDecoy(b,s,launcher))s._decoyClock=b.t+posture.cooldown}
 function seductionScore(m,d){const range=Math.max(80,dist(m,d)),strength=d.decoyStrength||1,angleBias=1/(1+range/2500);return strength*angleBias*(.75+Math.random()*.55)}
 function maybeSeduceMissile(b,m){if(m.kind!=='missile'||m.hp<=0||m.targetOrdnance)return;const target=m.target;if(!target||target.dead)return;const decoys=(b.ordnance||[]).filter(o=>o.kind==='decoy'&&o.team===target.team&&o.hp>0&&dist(o,m)<4200);if(!decoys.length)return;const best=decoys.map(d=>({d,s:seductionScore(m,d)})).sort((a,c)=>c.s-a.s)[0],targetLock=.85+((target.sensorPowerFraction||1)*.3);if(best.s>targetLock){m.targetOrdnance=best.d;m.target=null;m.decoyed=true;b.log(`${m.owner?.name||'Missile'}: guidance diverted by decoy.`)}}
-function updateDecoys(b,dt){for(const d of b.ordnance||[])if(d.kind==='decoy'&&d.hp>0){d.x+=d.vx*dt;d.y+=d.vy*dt;d.vx*=.999;d.vy*=.999}}
+function updateDecoys(b,dt){for(const d of b.ordnance||[])if(d.kind==='decoy'&&d.hp>0){d.x+=d.vx*dt;d.y+=d.vy*dt}}
 
 registerBattleHook('afterApplySystems','ew-jamming',({battle,ship})=>applyJamming(battle,ship),40);
 registerBattleHook('beforeProjectiles','ew-missile-seduction',({battle})=>{for(const m of battle.ordnance||[])maybeSeduceMissile(battle,m)},40);
