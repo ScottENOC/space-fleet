@@ -1,6 +1,7 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const FACTION_SCHEMA_VERSION=1;
 
 export const FACTIONS={
  central:{name:'Terran Central Government',short:'Central Government',kind:'government',home:'Sol Gateway',scope:'interstellar',lawful:true,colour:'#9fb9c8',description:'The gate-regulating central state, distant on the frontier but overwhelmingly powerful when it chooses to intervene.'},
@@ -52,7 +53,9 @@ export function ensureFactionState(){
    if(!campaign.factions[id]){campaign.factions[id]={...base,status:'active'};dirty=true}
    if(!Number.isFinite(campaign.factionRep[id])){campaign.factionRep[id]=defaultPlayerRep(id);dirty=true}
  }
- const ids=Object.keys(FACTIONS);for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const key=pairKey(ids[i],ids[j]);if(!Number.isFinite(campaign.factionRelations[key])){campaign.factionRelations[key]=initialRelation(ids[i],ids[j]);dirty=true}}
+ const ids=Object.keys(FACTIONS),resetRelations=campaign.factionSchemaVersion!==FACTION_SCHEMA_VERSION;
+ for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){const key=pairKey(ids[i],ids[j]);if(resetRelations||!Number.isFinite(campaign.factionRelations[key])){campaign.factionRelations[key]=initialRelation(ids[i],ids[j]);dirty=true}}
+ if(resetRelations){campaign.factionSchemaVersion=FACTION_SCHEMA_VERSION;dirty=true}
  if(!campaign.central){campaign.central={standing:20,lawfulness:0,militaryPermit:false,auxiliary:false,violations:0};dirty=true}
  if(Number.isFinite(campaign.central.standing)){if(campaign.factionRep.central!==campaign.central.standing){campaign.factionRep.central=campaign.central.standing;dirty=true}}else{campaign.central.standing=campaign.factionRep.central||0;dirty=true}
  if(dirty)saveCampaign(campaign);return campaign.factions;
