@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const mobile=()=>matchMedia('(max-width:760px)').matches;
 
-function installStyles(){if(document.querySelector('link[data-mobile-ui]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='mobile-ui.css?v=61';l.dataset.mobileUi='1';document.head.append(l)}
+function installStyles(){if(document.querySelector('link[href*="mobile-ui.css"]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='mobile-ui.css?v=62';l.dataset.mobileUi='1';document.head.append(l)}
 function lastName(name=''){const bits=String(name).trim().split(/\s+/);return bits[bits.length-1]||name}
 function roleAbbrev(title=''){return({Captain:'Cpt','Chief Engineer':'Eng','Chief Gunner':'Gun','Tactical Officer':'Tac','Damage Control Officer':'DC','Executive Officer':'XO',Helmsman:'Helm',CAG:'CAG'})[title]||title.split(/\s+/).map(x=>x[0]).join('').slice(0,4)}
 function compactTraffic(){
@@ -37,7 +37,7 @@ function updateBattleControls(){
  const fleet=$('#mobileFleetButton'),ours=(b.ships||[]).filter(s=>s.team==='P'&&!s.dead).length;if(fleet)fleet.textContent=`Fleet ${ours}`;
  compactTraffic();
 }
-function moduleCategory(id=''){if(/^missile_|^gun_|^laser_/.test(id))return'Weapons';if(/^engine_|^thruster_|^reactor_/.test(id))return'Power';if(/^fighter|^hangar|^launch/.test(id))return'Craft';return'Structure'}
+function moduleCategory(id=''){if(/^missile_|^gun_|^laser_|^pdc_/.test(id))return'Weapons';if(/^engine_|^thruster_|^reactor_/.test(id))return'Power';if(/^fighter|^hangar|^launch/.test(id))return'Craft';return'Structure'}
 function filterPalette(category='All'){$$('#palette .module').forEach(btn=>{btn.style.display=category==='All'||moduleCategory(btn.dataset.module)===category?'':'none'});$$('.mobilePaletteFilters button').forEach(b=>b.classList.toggle('active',b.dataset.category===category))}
 function installShipyardSheet(){
  const palette=$('.palette');if(!palette||$('#mobileComponentsButton'))return;
