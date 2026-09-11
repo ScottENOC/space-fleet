@@ -1,4 +1,5 @@
 /* Campaign command deck — designed as an in-universe bridge console, not a web dashboard. */
+body.campaignBridgeActive>header,body.campaignBridgeActive>.tabs{display:none!important}body.campaignBridgeActive #globalMenuButton.nonBattleMenu{display:block!important}
 #campaign.campaignPane{--bridge-line:#29445a;--bridge-dim:#7795aa;--bridge-text:#dce8ef;--bridge-hot:#d6ab62;--bridge-alert:#c96b66;background:radial-gradient(circle at 50% -15%,#122532 0,#081117 45%,#04090d 100%);color:var(--bridge-text);min-height:100dvh}
 #campaign .campaignWrap{max-width:none;margin:0;padding:0 14px 84px;min-height:100dvh;background-image:linear-gradient(rgba(125,185,215,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(125,185,215,.018) 1px,transparent 1px);background-size:32px 32px}
 #campaign .campaignHead{display:none}
@@ -12,7 +13,7 @@
 #campaign .campaignCard{position:relative;margin:10px 0;padding:13px 14px 14px;border:1px solid var(--bridge-line);border-radius:2px;background:linear-gradient(180deg,rgba(16,30,39,.88),rgba(7,17,23,.9));box-shadow:inset 3px 0 #18384b,0 7px 22px rgba(0,0,0,.18)}
 #campaign .campaignCard::before{content:attr(data-bridge-label);display:block;margin:-3px 0 12px;color:#7faabd;font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em}
 #campaign .campaignCard>h2{color:#bcd3df;font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.11em;text-transform:uppercase;margin:14px 0 8px;padding-top:9px;border-top:1px solid rgba(59,87,105,.45)}#campaign .campaignCard>h2:first-of-type{margin-top:0;padding-top:0;border-top:0}
-#campaign .campaignCard.bridgeStationHidden{display:none}
+#campaign .campaignCard.bridgeStationHidden,#campaign .bridgeOpsHidden{display:none!important}
 #campaign button{border-radius:2px;border-color:#35566d;background:#112838;color:#d7e8f0;font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.025em}#campaign button:active{background:#23485d}#campaign button:disabled{opacity:.38}
 #campaign .campaignShip,#campaign .encounter,#campaign .sectorCurrent,#campaign .contract,#campaign .legalBadge{border-radius:2px;background:rgba(12,27,36,.72);border-color:#2b4a5e;box-shadow:none}
 #campaign .campaignShip{border-left:3px solid #547f93}#campaign .campaignShip.unavailable{border-left-color:#614d4d}
