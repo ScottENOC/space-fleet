@@ -3,9 +3,8 @@ import {campaign} from './campaign-core.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let activeStation='ops';
 const STATIONS=[['ops','OPS'],['fleet','FLEET'],['nav','NAV'],['cargo','CARGO'],['intel','INTEL'],['log','LOG']];
-function text(id,fallback='—'){const el=$(id);return el?.textContent?.trim()||fallback}
 function stationFor(card){if(card.querySelector('#campaignFleet'))return'fleet';if(card.querySelector('#sectorMap'))return'ops';if(card.querySelector('#cargoMarket'))return'cargo';if(card.querySelector('#lawPanel'))return'intel';if(card.querySelector('#campaignLog'))return'log';return null}
-function labelFor(id){return({fleet:'FLEET CONTROL',ops:'OPERATIONS / NAVIGATION',nav:'NAVIGATION',cargo:'CARGO / TRADE',intel:'INTELLIGENCE / AUTHORITY',log:"SHIP'S LOG"})[id]||id.toUpperCase()}
+function labelFor(id){return({fleet:'FLEET CONTROL',ops:'OPERATIONS',nav:'NAVIGATION',cargo:'CARGO / TRADE',intel:'INTELLIGENCE / AUTHORITY',log:"SHIP'S LOG"})[id]||id.toUpperCase()}
 function relabel(){
  const map=new Map([['Fleet','Fleet status'],['Ship market','Dockyard / procurement'],['Gate network','Navigation'],['Contracts','Operations board'],['Opportunities','Sensor / traffic'],['Cargo & market','Cargo / trade'],['Authority & reputation','Intelligence / authority'],['Command log',"Ship's log"]]);
  $$('#campaign .campaignCard>h2').forEach(h=>{const n=map.get(h.textContent.trim());if(n)h.textContent=n});
@@ -21,9 +20,15 @@ function installChrome(){
  relabel();tagStations();showStation(activeStation);
 }
 function tagStations(){for(const card of $$('#campaign .campaignCard')){const id=stationFor(card);if(!id)continue;card.dataset.bridgeStationCard=id;card.dataset.bridgeLabel=labelFor(id)}}
-function showStation(id){activeStation=id||'ops';for(const card of $$('#campaign [data-bridge-station-card]')){const station=card.dataset.bridgeStationCard;let visible=station===activeStation;if(activeStation==='nav'&&station==='ops')visible=true;card.classList.toggle('bridgeStationHidden',!visible)}for(const b of $$('.bridgeStationBar [data-bridge-station]'))b.classList.toggle('active',b.dataset.bridgeStation===activeStation);if(activeStation==='nav')$('#sectorMap')?.scrollIntoView({block:'start',behavior:'smooth'})}
+function splitOperations(mode){
+ const card=$('#sectorMap')?.closest('.campaignCard');if(!card)return;
+ const nav=$('#sectorMap'),contracts=$('#contractBoard'),encounters=$('#encounterChoices'),scan=$('#newChoices');
+ const heads=[...card.querySelectorAll(':scope>h2')],navHead=heads.find(h=>h.textContent.trim().toLowerCase()==='navigation'),opsHead=heads.find(h=>h.textContent.trim().toLowerCase()==='operations board'),trafficHead=heads.find(h=>h.textContent.trim().toLowerCase()==='sensor / traffic');
+ const navMode=mode==='nav';for(const el of [nav,navHead])el?.classList.toggle('bridgeOpsHidden',!navMode);for(const el of [contracts,encounters,scan,opsHead,trafficHead])el?.classList.toggle('bridgeOpsHidden',navMode);card.dataset.bridgeLabel=labelFor(navMode?'nav':'ops');
+}
+function showStation(id){activeStation=id||'ops';for(const card of $$('#campaign [data-bridge-station-card]')){const station=card.dataset.bridgeStationCard,visible=station===activeStation||((activeStation==='nav'||activeStation==='ops')&&station==='ops');card.classList.toggle('bridgeStationHidden',!visible)}splitOperations(activeStation);for(const b of $$('.bridgeStationBar [data-bridge-station]'))b.classList.toggle('active',b.dataset.bridgeStation===activeStation);window.scrollTo({top:0,behavior:'smooth'})}
 function syncRail(){
- if(!$('#campaign')?.classList.contains('active'))return;
+ const active=$('#campaign')?.classList.contains('active');document.body.classList.toggle('campaignBridgeActive',!!active);if(!active)return;
  $('#bridgeLocation')&&( $('#bridgeLocation').textContent=campaign.location||'UNKNOWN SYSTEM');
  $('#bridgeDay')&&( $('#bridgeDay').textContent=`DAY ${campaign.day??'—'}`);
  $('#bridgeCredits')&&( $('#bridgeCredits').textContent=`${campaign.credits??0} cr`);
