@@ -1,6 +1,7 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {HULLS,MODULES} from './shipyard.js';
 import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './trading-hulks.js';
+import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding} from './factions-system.js?v=68';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const R=()=>Math.random();
@@ -13,14 +14,7 @@ export const SYSTEMS={
  'Nadir':{authority:.12,market:.5,security:.15,links:['Pelagos','Kestrel'],note:'Remote frontier system. Smugglers, private navies and pirates operate openly beyond the main settlements.'}
 };
 
-export const FACTIONS={
- central:{name:'Terran Central Government'},
- haven:{name:'Haven Reach Administration'},
- pelagosA:{name:'Pelagos Compact'},
- pelagosB:{name:'Pelagos Free Ports'},
- kestrel:{name:'Kestrel Colonial Council'},
- nadir:{name:'Nadir Settlements League'}
-};
+export {FACTIONS};
 
 export function ensureFrontierState(){
  campaign.central??={standing:20,lawfulness:0,militaryPermit:false,auxiliary:false,violations:0};
@@ -29,6 +23,7 @@ export function ensureFrontierState(){
  campaign.contractsCompleted??={trade:0,escort:0,scout:0,mercenary:0,smuggling:0,antiPiracy:0};
  campaign.knownSystems??=['Sol Gateway','Haven Reach','Pelagos','Kestrel','Nadir'];
  if(!SYSTEMS[campaign.location])campaign.location='Haven Reach';
+ ensureFactionState();
  saveCampaign(campaign);return campaign;
 }
 
@@ -63,7 +58,7 @@ export function gateDecision(from,to){
 export function applyInspection(risk=.2){
  ensureFrontierState();if(R()>risk)return{inspected:false};
  const contraband=Object.entries(campaign.cargo||{}).filter(([,v])=>v.illegal&&v.qty>0);
- if(contraband.length){campaign.central.standing-=12;campaign.central.lawfulness-=18;campaign.central.violations+=1;campaign.reputation-=2;saveCampaign(campaign);return{inspected:true,caught:true,text:`Inspection found contraband: ${contraband.map(([k,v])=>`${v.qty} ${k}`).join(', ')}.`};}
+ if(contraband.length){campaign.central.standing-=12;campaign.central.lawfulness-=18;campaign.central.violations+=1;campaign.reputation-=2;changePlayerStanding('central',-12);saveCampaign(campaign);return{inspected:true,caught:true,text:`Inspection found contraband: ${contraband.map(([k,v])=>`${v.qty} ${k}`).join(', ')}.`};}
  return{inspected:true,caught:false,text:'Gate patrol completed an inspection and found nothing actionable.'};
 }
 
@@ -90,21 +85,22 @@ export function buyTradingHulk(kind){
  const bp=makeTradingPremade(kind);bp.name=name;const entry={id:'ship_'+Math.random().toString(36).slice(2,10),name,blueprint:bp,status:'active',xp:0,battles:0,kills:0,state:null,history:[`Day ${campaign.day}: purchased at ${campaign.location}.`]};campaign.ships.push(entry);saveCampaign(campaign);return entry;
 }
 
+function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal'}}
 export function generateContracts(){
  ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[];
- contracts.push({kind:'escort',title:'Convoy escort',pay:180+Math.round((1-security)*220),legal:true,text:'Escort civilian transports between local planets and the gate approaches.'});
- contracts.push({kind:'scout',title:'Survey / scout run',pay:130+Math.round((1-security)*120),legal:true,text:'Map contacts and route hazards in the outer system.'});
- if(sys==='Pelagos'||sys==='Nadir')contracts.push({kind:'mercenary',title:'Local war contract',pay:320+Math.round((1-security)*260),legal:true,text:'One recognised local government wants naval support against another faction inside this solar system.'});
- if(security<.6)contracts.push({kind:'antiPiracy',title:'Pirate suppression',pay:220+Math.round((1-security)*250),legal:true,text:'Hunt raiders threatening commercial traffic.'});
- if(authority<.6)contracts.push({kind:'smuggling',title:'Quiet cargo movement',pay:360+Math.round(authority*180),legal:false,text:'Move restricted cargo through a gate without attracting official attention.'});
- if((campaign.central.standing||0)>55)contracts.push({kind:'government',title:'Central Government special tasking',pay:500,legal:true,text:'A naval liaison wants a deniable, experienced independent fleet for sensitive work.'});
+ contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
+ contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
+ if(sys==='Pelagos'||sys==='Nadir')contracts.push(contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.'));
+ if(security<.6)contracts.push(contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.'));
+ if(authority<.6)contracts.push(contract('smuggling','Quiet cargo movement',360+Math.round(authority*180),false,'Move restricted cargo through a gate without attracting official attention.'));
+ if((campaign.central.standing||0)>55)contracts.push(contract('government','Central Government special tasking',500,true,'A naval liaison wants a deniable, experienced independent fleet for sensitive work.'));
  return contracts;
 }
 
 export function completeAbstractContract(c){
  ensureFrontierState();campaign.day+=1;campaign.credits+=c.pay;campaign.contractsCompleted[c.kind]=(campaign.contractsCompleted[c.kind]||0)+1;
- if(c.legal){campaign.central.standing+=c.kind==='antiPiracy'?2:1;campaign.central.lawfulness+=1;campaign.reputation+=1;}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());}
+ if(c.legal){campaign.central.standing+=c.kind==='antiPiracy'?2:1;campaign.central.lawfulness+=1;campaign.reputation+=1;changePlayerStanding(c.issuer||'central',c.kind==='government'?4:2);}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());changePlayerStanding(c.issuer||'blackWake',3);}
  if(c.kind==='government'){campaign.central.auxiliary=true;campaign.central.militaryPermit=true;campaign.log.push(`Day ${campaign.day}: Central Naval Liaison granted auxiliary transit credentials.`);}
- else campaign.log.push(`Day ${campaign.day}: completed ${c.title}; earned ${c.pay} cr.`);
+ else campaign.log.push(`Day ${campaign.day}: completed ${c.title} for ${c.issuerName||FACTIONS[c.issuer]?.name||'a local principal'}; earned ${c.pay} cr.`);
  saveCampaign(campaign);
 }
