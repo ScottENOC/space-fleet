@@ -58,7 +58,7 @@ export function gateDecision(from,to){
 export function applyInspection(risk=.2){
  ensureFrontierState();if(R()>risk)return{inspected:false};
  const contraband=Object.entries(campaign.cargo||{}).filter(([,v])=>v.illegal&&v.qty>0);
- if(contraband.length){campaign.central.standing-=12;campaign.central.lawfulness-=18;campaign.central.violations+=1;campaign.reputation-=2;changePlayerStanding('central',-12);saveCampaign(campaign);return{inspected:true,caught:true,text:`Inspection found contraband: ${contraband.map(([k,v])=>`${v.qty} ${k}`).join(', ')}.`};}
+ if(contraband.length){campaign.central.lawfulness-=18;campaign.central.violations+=1;campaign.reputation-=2;changePlayerStanding('central',-12);saveCampaign(campaign);return{inspected:true,caught:true,text:`Inspection found contraband: ${contraband.map(([k,v])=>`${v.qty} ${k}`).join(', ')}.`};}
  return{inspected:true,caught:false,text:'Gate patrol completed an inspection and found nothing actionable.'};
 }
 
@@ -99,7 +99,7 @@ export function generateContracts(){
 
 export function completeAbstractContract(c){
  ensureFrontierState();campaign.day+=1;campaign.credits+=c.pay;campaign.contractsCompleted[c.kind]=(campaign.contractsCompleted[c.kind]||0)+1;
- if(c.legal){campaign.central.standing+=c.kind==='antiPiracy'?2:1;campaign.central.lawfulness+=1;campaign.reputation+=1;changePlayerStanding(c.issuer||'central',c.kind==='government'?4:2);}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());changePlayerStanding(c.issuer||'blackWake',3);}
+ if(c.legal){campaign.central.lawfulness+=1;campaign.reputation+=1;if((c.issuer||'central')!=='central')changePlayerStanding('central',c.kind==='antiPiracy'?2:1);changePlayerStanding(c.issuer||'central',c.kind==='government'?4:2);}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());changePlayerStanding(c.issuer||'blackWake',3);}
  if(c.kind==='government'){campaign.central.auxiliary=true;campaign.central.militaryPermit=true;campaign.log.push(`Day ${campaign.day}: Central Naval Liaison granted auxiliary transit credentials.`);}
  else campaign.log.push(`Day ${campaign.day}: completed ${c.title} for ${c.issuerName||FACTIONS[c.issuer]?.name||'a local principal'}; earned ${c.pay} cr.`);
  saveCampaign(campaign);
