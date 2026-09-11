@@ -1,6 +1,7 @@
 import {HULLS,emptyBlueprint,canPlace,placeModule,MODULES} from './shipyard.js';
 import './craft-catalog.js';
 import './ew-catalog.js';
+import './pdc-catalog.js?v=66';
 
 function setStarterHull(){
   const h=HULLS.frigate_sparrow;
@@ -31,6 +32,12 @@ export function makePremade(hullId){
   if(n<=20){placeMirrorPair(b,missile,3,3,'front')}
   else if(n<=32){placeMirrorPair(b,missile,3,3,'front');placeOne(b,laser,3,'front');placeOne(b,'radiator_1',0,'rear')}
   else{placeMirrorPair(b,missile,3,3,'front');placeMirrorPair(b,laser,3,3,'front');if(n>55)placeMirrorPair(b,radiator,0,0,'rear')}
+
+  // Destroyers and larger ships start gaining dedicated close-in coverage. Frigates
+  // deliberately keep relying on their ordinary naval guns/lasers for versatility.
+  if(n>55)placeMirrorPair(b,'pdc_1',2,0,'centre');
+  if(n>180)placeMirrorPair(b,'pdc_1',2,0,'front');
+  if(n>300)placeMirrorPair(b,'pdc_1',2,0,'rear');
 
   // EW remains optional rather than another mandatory support tax. Larger escorts get
   // expendable decoys; cruisers/capitals can spare volume for active jamming.
