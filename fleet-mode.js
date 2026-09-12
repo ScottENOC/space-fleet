@@ -1,5 +1,6 @@
 import {Battle,initialiseShip} from './sim.js';
 import {activePlayerShips,instantiateCampaignShip,applySavedState} from './campaign-core.js';
+import {campaignEnemyFleet} from './faction-fleet-identity.js?v=69';
 
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
@@ -35,7 +36,7 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
   let campaignEntries=null;
   if(typeof window!=='undefined'&&window.__campaignActive){
     const persistent=activePlayerShips();
-    if(persistent.length){campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));}
+    if(persistent.length){campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));enemyShips=campaignEnemyFleet(persistent.length);}
   }
   if(!playerShips.length||!enemyShips.length)throw new Error('Each side needs at least one ship.');
   const b=new Battle(playerShips[0],enemyShips[0],seed);
@@ -46,7 +47,7 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     if(team==='P'&&campaignEntries?.[i])applySavedState(s,campaignEntries[i]);
     s.uid=`${team}${i+1}`;
     s.commandTargetId=null;
-    s.targetPriority=[...DEFAULT_PRIORITY];
+    if(!Array.isArray(s.targetPriority)||!s.targetPriority.length)s.targetPriority=[...DEFAULT_PRIORITY];
     s.ramPolicy=team==='P'?'discretion':null;
     const lane=(i-(team==='P'?(playerShips.length-1)/2:(enemyShips.length-1)/2))*420;
     Object.assign(s,{x:team==='P'?-1500:1500,y:lane,angle:team==='P'?.08:Math.PI+.08,vx:0,vy:0,omega:0,dead:false,escaped:false,surrendered:false});
