@@ -1,6 +1,6 @@
 import {Battle,initialiseShip} from './sim.js';
 import {activePlayerShips,instantiateCampaignShip,applySavedState} from './campaign-core.js';
-import {campaignEnemyFleet} from './faction-fleet-identity.js?v=69';
+import {campaignEnemyFleet} from './faction-fleet-identity.js?v=70';
 
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
