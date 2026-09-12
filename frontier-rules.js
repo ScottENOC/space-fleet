@@ -1,7 +1,8 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {HULLS,MODULES} from './shipyard.js';
 import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './trading-hulks.js';
-import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding} from './factions-system.js?v=68';
+import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=68';
+import {issuerNpc,recordNpcContract} from './campaign-npcs.js?v=69';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const R=()=>Math.random();
@@ -85,7 +86,8 @@ export function buyTradingHulk(kind){
  const bp=makeTradingPremade(kind);bp.name=name;const entry={id:'ship_'+Math.random().toString(36).slice(2,10),name,blueprint:bp,status:'active',xp:0,battles:0,kills:0,state:null,history:[`Day ${campaign.day}: purchased at ${campaign.location}.`]};campaign.ships.push(entry);saveCampaign(campaign);return entry;
 }
 
-function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal'}}
+function opposingFaction(kind,issuer,system){const powers=localPowers(system);if(kind==='antiPiracy')return powers.filter(x=>!x.faction.lawful).sort((a,b)=>b.presence-a.presence)[0]?.id||'redKnives';if(kind==='mercenary'){const rivals=powers.filter(x=>x.id!==issuer&&x.faction.kind==='government').sort((a,b)=>relation(issuer,a.id)-relation(issuer,b.id));return rivals[0]?.id||null}return null}
+function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location),person=issuerNpc(issuer,kind),targetFaction=opposingFaction(kind,issuer,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal',issuerNpc:person?.id||null,issuerNpcName:person?.name||null,targetFaction,targetFactionName:targetFaction?FACTIONS[targetFaction]?.name:null}}
 export function generateContracts(){
  ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[];
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
@@ -100,7 +102,8 @@ export function generateContracts(){
 export function completeAbstractContract(c){
  ensureFrontierState();campaign.day+=1;campaign.credits+=c.pay;campaign.contractsCompleted[c.kind]=(campaign.contractsCompleted[c.kind]||0)+1;
  if(c.legal){campaign.central.lawfulness+=1;campaign.reputation+=1;if((c.issuer||'central')!=='central')changePlayerStanding('central',c.kind==='antiPiracy'?2:1);changePlayerStanding(c.issuer||'central',c.kind==='government'?4:2);}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());changePlayerStanding(c.issuer||'blackWake',3);}
+ if(c.issuerNpc)recordNpcContract(c.issuerNpc,true);
  if(c.kind==='government'){campaign.central.auxiliary=true;campaign.central.militaryPermit=true;campaign.log.push(`Day ${campaign.day}: Central Naval Liaison granted auxiliary transit credentials.`);}
- else campaign.log.push(`Day ${campaign.day}: completed ${c.title} for ${c.issuerName||FACTIONS[c.issuer]?.name||'a local principal'}; earned ${c.pay} cr.`);
+ else campaign.log.push(`Day ${campaign.day}: completed ${c.title} for ${c.issuerNpcName||c.issuerName||FACTIONS[c.issuer]?.name||'a local principal'}; earned ${c.pay} cr.`);
  saveCampaign(campaign);
 }
