@@ -1,8 +1,10 @@
 import {campaign} from './campaign-core.js';
+import './campaign-specialisation-ui.js?v=70';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 let activeStation='ops';
 const STATIONS=[['ops','OPS'],['fleet','FLEET'],['nav','NAV'],['cargo','CARGO'],['intel','INTEL'],['log','LOG']];
+function installSpecialisationStyles(){if(document.querySelector('link[data-specialisation-ui]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='specialisation-ui.css?v=70';l.dataset.specialisationUi='1';document.head.append(l)}
 function stationFor(card){if(card.querySelector('#campaignFleet'))return'fleet';if(card.querySelector('#sectorMap'))return'ops';if(card.querySelector('#cargoMarket'))return'cargo';if(card.querySelector('#lawPanel'))return'intel';if(card.querySelector('#campaignLog'))return'log';return null}
 function labelFor(id){return({fleet:'FLEET CONTROL',ops:'OPERATIONS',nav:'NAVIGATION',cargo:'CARGO / TRADE',intel:'INTELLIGENCE / AUTHORITY',log:"SHIP'S LOG"})[id]||id.toUpperCase()}
 function relabel(){
@@ -38,5 +40,5 @@ function syncRail(){
  const ops=$('[data-bridge-station="ops"]');if(ops)ops.classList.toggle('hasAlert',!!campaign.pendingEncounter);
  const fleet=$('[data-bridge-station="fleet"]');if(fleet)fleet.classList.toggle('hasAlert',(campaign.ships||[]).some(s=>s.status!=='active'));
 }
-function install(){installChrome();tagStations();relabel();syncRail()}
+function install(){installSpecialisationStyles();installChrome();tagStations();relabel();syncRail()}
 install();setInterval(install,250);
