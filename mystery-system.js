@@ -1,8 +1,7 @@
 import {campaign,saveCampaign} from './campaign-core.js';
-import {playerStanding,changePlayerStanding} from './factions-system.js?v=68';
+import {playerStanding} from './factions-system.js?v=68';
 import {NPCS,changeNpcRelationship} from './campaign-npcs.js?v=69';
 
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 
 export const MYSTERIES={
@@ -24,13 +23,20 @@ const EVIDENCE={
  navyTelemetry:{title:'Classified field telemetry',confidence:'high',source:'Central Navy',text:'Central sensor logs show a brief gate-like spacetime distortion at the moment one missing ship disappeared.',supports:['gateEcho','blackProject']},
  cutHull:{title:'Selective hull cutting',confidence:'high',source:'Direct salvage inspection',text:'A derelict has precision cuts around command, navigation and engineering spaces. The pattern looks like seizure, not ordinary piracy.',supports:['blackProject','lostColony']},
  unknownAlloy:{title:'Uncatalogued drive alloy',confidence:'medium',source:'Orpheus metallurgical analysis',text:'Recovered fragments use a human-compatible alloy recipe not found in current frontier or Central production catalogues.',supports:['lostColony']},
- scrubbedOrders:{title:'Scrubbed naval tasking',confidence:'medium',source:'Central records discrepancy',text:'A patrol detachment received sealed orders for Nadir, but the tasking record was later removed from ordinary Navy systems.',supports:['blackProject']}
+ scrubbedOrders:{title:'Scrubbed naval tasking',confidence:'medium',source:'Central records discrepancy',text:'A patrol detachment received sealed orders for Nadir, but the tasking record was later removed from ordinary Navy systems.',supports:['blackProject']},
+ phaseReturn:{title:'Phase-return telemetry',confidence:'high',source:'Fleet expedition sensors',text:'A missing merchant repeatedly resolves out of empty space with an authenticated identity and a shipboard clock inconsistent with elapsed frontier time.',supports:['gateEcho']},
+ maskedTelemetry:{title:'Masked military emissions',confidence:'high',source:'Fleet passive observation',text:'The N-17 contact uses recognisably human military power management while suppressing signatures in ways consistent with a deliberate covert deployment.',supports:['blackProject']},
+ projectChallenge:{title:'Restricted Central challenge code',confidence:'high',source:'Direct communications intercept',text:'The unknown platform answered with a valid but compartmented Central authentication family and ordered the fleet away.',supports:['blackProject']},
+ projectHardware:{title:'Interdiction hardware',confidence:'high',source:'Seized N-17 platform',text:'Captured hardware combines Central design practices with experimental gate-field equipment absent from declared inventories.',supports:['blackProject']},
+ enclaveSignature:{title:'Independent human design lineage',confidence:'high',source:'Fleet passive observation',text:'The unknown ship is clearly human-built, but its drive, thermal layout and control emissions diverge from every registered frontier design family.',supports:['lostColony']},
+ enclaveVoice:{title:'Archaic human protocol',confidence:'high',source:'Direct communications',text:'The contact answered in a recognisably human protocol descended from an older standard and referred to registered-space vessels as outsiders.',supports:['lostColony']},
+ enclaveHardware:{title:'Independent enclave hardware',confidence:'high',source:'Seized N-17 contact',text:'Captured systems show decades of independent human engineering development rather than a hidden contemporary production run.',supports:['lostColony']}
 };
 
 const LEADS={
  meridianAudit:{title:'Audit the loss records',system:'Pelagos',route:'merchant',requires:()=>playerStanding('meridian')>=15,description:'Meridian will open detailed claims data to captains it considers reliable.',resolve:()=>({evidence:'insurance',log:'Meridian opened its restricted loss database. The disappearances form a geographic pattern.'})},
  blackWakeRumour:{title:'Ask about the dark marker',system:'Nadir',route:'underworld',requires:()=>playerStanding('blackWake')>=5,description:'Black Wake captains know which empty places they refuse to enter.',resolve:()=>({evidence:'pirateAvoidance',npc:'blackwake_morrow',log:'Nyx Morrow gave you coordinates for the “dark marker”, with the advice not to linger there.'})},
- derelictSearch:{title:'Search Nadir N-17',system:'Nadir',route:'independent',requires:s=>s.evidence.includes('insurance')||s.evidence.includes('pirateAvoidance'),description:'Take the fleet off the normal lane and search the N-17 volume directly.',cost:8,resolve:s=>({evidence:s.truth==='gateEcho'?'clockDrift':'cutHull',log:'The fleet located wreckage in N-17 and recovered evidence that does not fit ordinary piracy.'})},
+ derelictSearch:{title:'Search Nadir N-17',system:'Nadir',route:'independent',requires:s=>s.evidence.includes('insurance')||s.evidence.includes('pirateAvoidance'),description:'Take the fleet off the normal lane and narrow the N-17 search volume.',cost:8,resolve:s=>({evidence:s.truth==='gateEcho'?'clockDrift':'cutHull',log:'The fleet located wreckage in N-17 and narrowed the anomaly volume enough for a dedicated expedition.'})},
  navyBriefing:{title:'Receive sealed Navy briefing',system:'Haven Reach',route:'navy',requires:()=>!!campaign.central?.auxiliary||playerStanding('central')>=60,description:'Commodore Vesper has classified material and expects operational discretion.',resolve:s=>({evidence:s.truth==='blackProject'?'scrubbedOrders':'navyTelemetry',npc:'central_vesper',log:'Commodore Vesper released classified Nadir telemetry under operational restrictions.'})},
  orpheusAnalysis:{title:'Have Orpheus analyse fragments',system:'Kestrel',route:'industrial',requires:s=>playerStanding('orpheus')>=10&&s.evidence.includes('cutHull'),description:'Orpheus laboratories can identify whether the cutting debris came from known industry.',resolve:s=>({evidence:s.truth==='lostColony'?'unknownAlloy':'scrubbedOrders',log:'Orpheus completed a metallurgical and tool-mark analysis of the recovered fragments.'})}
 };
@@ -55,7 +61,6 @@ export function underworldDirective(){const s=ensureState();if(playerStanding('b
 export function interactionContext(){return{navy:navyDirective(),merchant:merchantDirective(),underworld:underworldDirective()}}
 export function investigationSummary(){const s=ensureState(),scores=recalcHypotheses(),max=Math.max(1,...Object.values(scores));return{...s,name:MYSTERIES.nadirDisappearances.name,summary:MYSTERIES.nadirDisappearances.summary,evidence:evidenceList(),hypotheses:Object.entries(scores).map(([id,score])=>({id,label:MYSTERIES.nadirDisappearances.truths[id].label,score,strength:score===0?'unsupported':score===max&&score>=3?'leading':score>=2?'plausible':'weak'})),leads:knownLeads(),context:interactionContext()}}
 
-// Transitional compatibility: old plot tokens become one mundane starting lead rather than XP.
 export function migrateLegacyMystery(){const s=ensureState();if((campaign.plotStage||0)>0&&!s.evidence.length){addEvidence('insurance','Converted from earlier campaign mystery progress.')}campaign.plotStage=0;saveCampaign(campaign)}
 
 if(typeof window!=='undefined')window.__mysteries={investigationSummary,availableLeads,resolveLead,addEvidence};

@@ -1,5 +1,5 @@
 import {campaign} from './campaign-core.js';
-import {addEvidence,investigationState} from './mystery-system.js?v=72';
+import {addEvidence,investigationState} from './mystery-system.js?v=73';
 
 let seen=(campaign.log||[]).length;
 function inspectNewLogEntries(){

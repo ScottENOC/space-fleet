@@ -32,7 +32,17 @@ function tuneShip(s,factionId,index=0){const id=FACTION_FLEET_IDENTITIES[faction
  s.specialisationIds=[];for(const spec of id.specialisations||[])installSpecialisation(s,spec);applySpecialisations(s);
  s.name=`${id.label} ${index+1}`;return s}
 export function makeFactionEnemyFleet(factionId,count=1){const out=[];for(let i=0;i<count;i++){const bp=makeFactionBlueprint(factionId,i),s=blueprintToShip(bp,'E');out.push(tuneShip(s,factionId,i))}return out}
-export function encounterEnemyFaction(enc=campaign.pendingEncounter){if(enc?.targetFaction&&FACTIONS[enc.targetFaction])return enc.targetFaction;if(enc?.centralPatrol)return'central';if(enc?.contract?.targetFaction)return enc.contract.targetFaction;if(enc?.contract?.kind==='antiPiracy'){const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}if(enc?.contract?.kind==='mercenary')return enc.contract.targetFaction||'pelagosB';const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}
-export function campaignEnemyFleet(playerCount=1){const faction=encounterEnemyFaction(),strength=campaign.factions?.[faction]?.military||20,count=Math.max(1,Math.min(3,playerCount+(strength>45?1:0)-(strength<20?1:0)));return makeFactionEnemyFleet(faction,count)}
 
-if(typeof window!=='undefined')window.__factionFleetIdentity={FACTION_FLEET_IDENTITIES,makeFactionBlueprint,makeFactionEnemyFleet,encounterEnemyFaction};
+export function makeMysteryEnemyFleet(truth,playerCount=1){
+ if(truth==='blackProject'){
+  const count=Math.max(1,Math.min(2,playerCount));return makeFactionEnemyFleet('central',count).map((s,i)=>{s.name=`Interdiction Test Platform ${i+1}`;s.factionName='Unacknowledged Central programme';s.jammingPosture='aggressive';s.targetPriority=['weapons','engine','sensor','bridge','reactor','hull'];return s});
+ }
+ if(truth==='lostColony'){
+  const count=Math.max(1,Math.min(2,playerCount));const out=[];for(let i=0;i<count;i++){const bp=makePremade(i?'destroyer_rapier':'frigate_dart');bp.ai='pursuit';bp.targetPriority=['engine','weapons','sensor','bridge','reactor','hull'];const s=blueprintToShip(bp,'E');s.name=`Unknown Picket ${i+1}`;s.factionId='unknownEnclave';s.factionName='Unknown human enclave';s.factionStyle='Fast, low-emission interception craft built around unfamiliar but recognisably human engineering.';s.targetPriority=[...bp.targetPriority];s.ai='pursuit';for(const m of s.modules){if(m.type==='engine')m.force=(m.force||0)*1.12;if(m.type==='sensor')m.sensitivity=(m.sensitivity||1)*1.25}out.push(s)}return out;
+ }
+ return[];
+}
+export function encounterEnemyFaction(enc=campaign.pendingEncounter){if(enc?.targetFaction&&FACTIONS[enc.targetFaction])return enc.targetFaction;if(enc?.centralPatrol)return'central';if(enc?.contract?.targetFaction)return enc.contract.targetFaction;if(enc?.contract?.kind==='antiPiracy'){const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}if(enc?.contract?.kind==='mercenary')return enc.contract.targetFaction||'pelagosB';const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}
+export function campaignEnemyFleet(playerCount=1){const enc=campaign.pendingEncounter;if(enc?.kind==='mystery'&&enc.mysteryTruth)return makeMysteryEnemyFleet(enc.mysteryTruth,playerCount);const faction=encounterEnemyFaction(),strength=campaign.factions?.[faction]?.military||20,count=Math.max(1,Math.min(3,playerCount+(strength>45?1:0)-(strength<20?1:0)));return makeFactionEnemyFleet(faction,count)}
+
+if(typeof window!=='undefined')window.__factionFleetIdentity={FACTION_FLEET_IDENTITIES,makeFactionBlueprint,makeFactionEnemyFleet,makeMysteryEnemyFleet,encounterEnemyFaction};
