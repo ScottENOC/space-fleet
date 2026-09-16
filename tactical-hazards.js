@@ -10,7 +10,7 @@ function convoy(b){return (b.ships||[]).filter(s=>s.civilianEscort&&!s.dead)}
 function escorts(b){return (b.ships||[]).filter(s=>s.team==='P'&&!s.civilianEscort&&!s.dead)}
 function sensors(b){return (b.ships||[]).filter(s=>s.team==='P'&&!s.dead)}
 function sensorStrength(s){
- let v=(s.modules||[]).some(m=>m.type==='bridge'&&m.hp>0&&!m.disabled)?.7:0;
+ let v=(s.modules||[]).some(m=>m.type==='bridge'&&m.hp>0&&!m.disabled) ? .7 : 0;
  for(const m of s.modules||[])if(m.type==='sensor'&&m.hp>0&&!m.disabled)v+=(m.sensitivity||1)*(m.hp/Math.max(1,m.maxHp||m.hp));
  return v*clamp(s.sensorPowerFraction??1,.2,1);
 }
@@ -58,7 +58,7 @@ function closestApproach(s,m){
 function steerShips({battle:b,ship:s}){
  if(!scenario(b)||s.dead||s.team!=='P')return;
  const h=ensure(b);if(!h||h.finished)return;
- s.desiredAngle=0;s.throttle=s.civilianEscort?.58:.66;
+ s.desiredAngle=0;s.throttle=s.civilianEscort ? .58 : .66;
  const tracked=(b.ordnance||[]).filter(o=>o.kind==='meteor'&&o.hp>0&&o.detectedBy?.P);
  if(s.civilianEscort){
   let threat=null;
@@ -94,7 +94,7 @@ function finishObjective({battle:b}){
  const elapsed=b.t-h.startedAt,survivors=convoy(b).length,total=h.initialConvoy;
  if(survivors<=0){h.finished=true;b.hazardResult={success:false,survivors:0,total,payoutFactor:0,detected:h.detected,destroyed:h.destroyed,impacts:h.impacts};b.winner='E';b.log('Hazard transit failed: all escorted merchant vessels were lost.');return}
  if(elapsed<h.duration){if(b.winner)b.winner=null;return}
- const factor=survivors===total?1:survivors/total>=.66?.78:.48;h.finished=true;b.hazardResult={success:true,survivors,total,payoutFactor:factor,detected:h.detected,destroyed:h.destroyed,impacts:h.impacts};b.winner='P';b.log(`Hazard transit complete: ${survivors}/${total} merchant vessels cleared the swarm.`);
+ const factor=survivors===total ? 1 : (survivors/total>=.66 ? .78 : .48);h.finished=true;b.hazardResult={success:true,survivors,total,payoutFactor:factor,detected:h.detected,destroyed:h.destroyed,impacts:h.impacts};b.winner='P';b.log(`Hazard transit complete: ${survivors}/${total} merchant vessels cleared the swarm.`);
 }
 
 registerBattleHook('beforeStep','hazard-meteor-spawn-detect',({battle,dt})=>{if(!scenario(battle))return;ensure(battle);spawn(battle,dt);detect(battle,dt)},220);
