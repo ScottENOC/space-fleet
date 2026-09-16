@@ -91,6 +91,10 @@ function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaig
 export function generateContracts(){
  ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[];
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
+ if(sys==='Kestrel'||sys==='Nadir'){
+   const hazard=contract('escort','Meteor-swarm convoy escort',260+Math.round((1-security)*240),true,'Escort civilian transports through a charted meteor swarm. Shared sensor tracks let the convoy evade; defensive fire and physical screening may be needed.');
+   hazard.encounter='meteorSwarm';hazard.convoyCount=sys==='Nadir'?3:2;contracts.push(hazard);
+ }
  contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
  if(sys==='Pelagos'||sys==='Nadir')contracts.push(contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.'));
  if(security<.6)contracts.push(contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.'));
