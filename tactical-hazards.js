@@ -3,7 +3,6 @@ import {registerBattleHook} from './battle-hooks.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const METEOR_TEAM='H';
-const UNTRACKED_TEAM='P';
 
 function scenario(b){return b?.nonCombatScenario==='meteorEscort'}
 function convoy(b){return (b.ships||[]).filter(s=>s.civilianEscort&&!s.dead)}
@@ -19,21 +18,21 @@ function ensure(b){
  if(b.hazardState)return b.hazardState;
  const ships=convoy(b),avg=ships.length?ships.reduce((n,s)=>n+s.x,0)/ships.length:-1300;
  b.hazardState={kind:'meteorSwarm',startedAt:b.t,initialConvoy:ships.length,startX:avg,duration:78,spawnUntil:64,spawnClock:0,spawned:0,detected:0,destroyed:0,impacts:0,finished:false,lastDetectionLog:-99,sensorRating:0};
- b.ordnance??=[];
+ b.ordnance??=[];b.hazardMeteors??=[];
  b.log(`Hazard transit: ${ships.length} merchant vessel${ships.length===1?'':'s'} entering a charted meteor swarm. Fleet sensors are sharing tracks over the convoy datalink.`);
  return b.hazardState;
 }
 function convoyCentre(b){const c=convoy(b);if(!c.length)return{x:0,y:0};return{x:c.reduce((n,s)=>n+s.x,0)/c.length,y:c.reduce((n,s)=>n+s.y,0)/c.length}}
 function meteorSpec(b){
  const c=convoyCentre(b),r=b.rng.range(1.1,4.2),speed=b.rng.range(470,880),side=b.rng.range(-1,1),mass=900*r*r*r;
- return{kind:'meteor',neutralHazard:true,team:UNTRACKED_TEAM,x:c.x+b.rng.range(4300,6100),y:c.y+b.rng.range(-1250,1250),vx:-speed,vy:b.rng.range(-85,85)+side*25,r,hp:Math.round(16+r*r*5),maxHp:Math.round(16+r*r*5),mass,damage:Math.round(45+r*r*24+speed*.08),penetration:.72+r*.12,ttl:18,detectedBy:{P:false},detectionQuality:0};
+ return{kind:'meteor',neutralHazard:true,team:METEOR_TEAM,x:c.x+b.rng.range(4300,6100),y:c.y+b.rng.range(-1250,1250),vx:-speed,vy:b.rng.range(-85,85)+side*25,r,hp:Math.round(16+r*r*5),maxHp:Math.round(16+r*r*5),mass,damage:Math.round(45+r*r*24+speed*.08),penetration:.72+r*.12,ttl:18,detectedBy:{P:false},detectionQuality:0};
 }
 function spawn(b,dt){
  const h=ensure(b);if(!h||h.finished||b.t-h.startedAt>h.spawnUntil)return;
  h.spawnClock-=dt;
  while(h.spawnClock<=0){
   const burst=b.rng.next()<.14?2:1;
-  for(let i=0;i<burst;i++){b.ordnance.push(meteorSpec(b));h.spawned++}
+  for(let i=0;i<burst;i++){b.hazardMeteors.push(meteorSpec(b));h.spawned++}
   h.spawnClock+=b.rng.range(.72,1.45);
  }
 }
@@ -41,14 +40,15 @@ function detect(b,dt){
  const h=ensure(b);if(!h)return;
  const obs=sensors(b).map(s=>({s,strength:sensorStrength(s)})).filter(x=>x.strength>0),drones=(b.ordnance||[]).filter(o=>o.kind==='sensorDrone'&&o.team==='P'&&o.hp>0);
  h.sensorRating=obs.reduce((n,x)=>n+x.strength,0)+drones.reduce((n,d)=>n+(d.sensorStrength||1.6),0);
- for(const m of b.ordnance||[]){
-  if(m.kind!=='meteor'||m.hp<=0||m.detectedBy?.P)continue;
-  let best=0;
+ const acquired=[];
+ for(const m of b.hazardMeteors||[]){
+  if(m.hp<=0)continue;let best=0;
   for(const {s,strength} of obs){const range=1900+strength*1050,q=1-dist(s,m)/Math.max(1,range);if(q>0)best=Math.max(best,q*(.45+strength*.16))}
   for(const d of drones){const range=3300+(d.sensorStrength||1.6)*750,q=1-dist(d,m)/range;if(q>0)best=Math.max(best,q*.9)}
   m.detectionQuality=clamp((m.detectionQuality||0)+best*dt*.75,0,1);
-  if(m.detectionQuality>=.13){m.detectedBy={...(m.detectedBy||{}),P:true};m.team=METEOR_TEAM;h.detected++;if(b.t-h.lastDetectionLog>5){b.log('Sensor net: incoming meteor tracks resolved. Convoy evasive manoeuvres and point defence authorised.');h.lastDetectionLog=b.t}}
+  if(m.detectionQuality>=.13){m.detectedBy={P:true};acquired.push(m);h.detected++;if(b.t-h.lastDetectionLog>5){b.log('Sensor net: incoming meteor tracks resolved. Convoy evasive manoeuvres and point defence authorised.');h.lastDetectionLog=b.t}}
  }
+ if(acquired.length){const found=new Set(acquired);b.hazardMeteors=b.hazardMeteors.filter(m=>!found.has(m));b.ordnance.push(...acquired)}
 }
 function closestApproach(s,m){
  const rx=m.x-s.x,ry=m.y-s.y,rvx=m.vx-(s.vx||0),rvy=m.vy-(s.vy||0),rv2=rvx*rvx+rvy*rvy;if(rv2<1e-6)return{time:Infinity,miss:Infinity,side:0};
@@ -66,7 +66,7 @@ function steerShips({battle:b,ship:s}){
   if(threat){s.desiredAngle=clamp(-threat.a.side*.34,-.38,.38);s.throttle=.76;s.order='Evasive turn on shared meteor track';return}
   s.order='Maintain convoy transit vector';
  }else{
-  const index=escorts(b).indexOf(s),lane=(index-(Math.max(1,escorts(b).length)-1)/2)*230,targetY=convoyCentre(b).y+lane;
+  const screen=escorts(b),index=screen.indexOf(s),lane=(index-(Math.max(1,screen.length)-1)/2)*230,targetY=convoyCentre(b).y+lane;
   s.desiredAngle=clamp((targetY-s.y)/950,-.28,.28);s.order='Screen convoy through hazard corridor';
  }
 }
@@ -77,17 +77,22 @@ function segmentCircle(ax,ay,bx,by,cx,cy,r){
 function impact(b,m,s,x,y){
  const rvx=m.vx-(s.vx||0),rvy=m.vy-(s.vy||0),attacker={name:'Meteor',team:METEOR_TEAM,x:m.x,y:m.y,damageDone:0};
  b.hitRay(attacker,s,m.damage,'meteor',{x,y,dx:rvx,dy:rvy,penetration:m.penetration||1});
- const impulse=Math.min(18000000,m.mass*Math.hypot(rvx,rvy));const mag=Math.max(1,Math.hypot(rvx,rvy));s.vx+=(rvx/mag)*impulse/Math.max(1,s.mass);s.vy+=(rvy/mag)*impulse/Math.max(1,s.mass);
+ const impulse=Math.min(18000000,m.mass*Math.hypot(rvx,rvy)),mag=Math.max(1,Math.hypot(rvx,rvy));s.vx+=(rvx/mag)*impulse/Math.max(1,s.mass);s.vy+=(rvy/mag)*impulse/Math.max(1,s.mass);
  m.hp=0;ensure(b).impacts++;b.log(`${s.name}: meteor impact. ${s.civilianEscort?'Convoy vessel damaged.':'Escort absorbed the strike.'}`);
+}
+function moveOne(b,m,dt){
+ if(m.hp<=0)return;const ax=m.x,ay=m.y,bx=ax+m.vx*dt,by=ay+m.vy*dt;let hit=null;
+ for(const s of b.ships||[]){if(s.dead)continue;const t=segmentCircle(ax,ay,bx,by,s.x,s.y,(s.radius||15)+(m.r||1));if(t!=null&&(!hit||t<hit.t))hit={s,t}}
+ if(hit){const x=ax+(bx-ax)*hit.t,y=ay+(by-ay)*hit.t;impact(b,m,hit.s,x,y)}else{m.x=bx;m.y=by}
 }
 function advanceMeteors({battle:b,dt}){
  if(!scenario(b))return;const h=ensure(b);if(!h)return;
- for(const m of b.ordnance||[]){
-  if(m.kind!=='meteor'||m.hp<=0)continue;const ax=m.x,ay=m.y,bx=ax+m.vx*dt,by=ay+m.vy*dt;let hit=null;
-  for(const s of b.ships||[]){if(s.dead)continue;const t=segmentCircle(ax,ay,bx,by,s.x,s.y,(s.radius||15)+(m.r||1));if(t!=null&&(!hit||t<hit.t))hit={s,t}}
-  if(hit){const x=ax+(bx-ax)*hit.t,y=ay+(by-ay)*hit.t;impact(b,m,hit.s,x,y)}else{m.x=bx;m.y=by}
- }
- const aliveSet=new Set((b.ordnance||[]).filter(o=>o.kind==='meteor'&&o.hp>0));h.destroyed=Math.max(h.destroyed,h.spawned-h.impacts-aliveSet.size);
+ for(const m of b.hazardMeteors||[]){m.ttl-=dt;moveOne(b,m,dt)}
+ b.hazardMeteors=(b.hazardMeteors||[]).filter(m=>m.hp>0&&m.ttl>0);
+ for(const m of b.ordnance||[])if(m.kind==='meteor'&&m.hp>0)moveOne(b,m,dt);
+ // A tracked meteor disappearing from ordnance without an impact was destroyed by defensive fire.
+ const trackedLive=(b.ordnance||[]).filter(o=>o.kind==='meteor'&&o.hp>0).length;
+ h.destroyed=Math.max(h.destroyed,h.detected-h.impacts-trackedLive);
 }
 function finishObjective({battle:b}){
  if(!scenario(b))return;const h=ensure(b);if(!h||h.finished)return;
@@ -102,5 +107,5 @@ registerBattleHook('beforeApplySystems','hazard-convoy-navigation',steerShips,22
 registerBattleHook('afterProjectiles','hazard-meteor-ballistics',advanceMeteors,140);
 registerBattleHook('afterStep','hazard-objective-resolution',finishObjective,100);
 
-export function hazardSummary(b){const h=scenario(b)?ensure(b):null;if(!h)return null;const live=(b.ordnance||[]).filter(o=>o.kind==='meteor'&&o.hp>0),tracked=live.filter(o=>o.detectedBy?.P);return{...h,elapsed:b.t-h.startedAt,timeRemaining:Math.max(0,h.duration-(b.t-h.startedAt)),convoySurvivors:convoy(b).length,liveMeteors:live.length,trackedMeteors:tracked.length}}
+export function hazardSummary(b){const h=scenario(b)?ensure(b):null;if(!h)return null;const tracked=(b.ordnance||[]).filter(o=>o.kind==='meteor'&&o.hp>0);return{...h,elapsed:b.t-h.startedAt,timeRemaining:Math.max(0,h.duration-(b.t-h.startedAt)),convoySurvivors:convoy(b).length,liveMeteors:tracked.length+(b.hazardMeteors?.length||0),trackedMeteors:tracked.length}}
 if(typeof window!=='undefined')window.__hazardSummary=()=>hazardSummary(window.__fleetBattle);
