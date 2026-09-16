@@ -6,7 +6,7 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const rot=(x,y,a)=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];
 
 function worldPoint(s,m){const [x,y]=rot(m.x||0,m.y||0,s.angle);return{x:s.x+x,y:s.y+y}}
-function threatRank(o){return o.kind==='missile'?0:o.kind==='boardingShuttle'?1:o.kind==='fighter'?2:o.kind==='sensorDrone'?3:4}
+function threatRank(o){return o.kind==='missile'?0:o.kind==='meteor'?1:o.kind==='boardingShuttle'?2:o.kind==='fighter'?3:o.kind==='sensorDrone'?4:5}
 function interceptAngle(s,o,speed){
  const p=worldPoint(s,{x:0,y:0}),rx=o.x-p.x,ry=o.y-p.y,rvx=(o.vx||0)-(s.vx||0),rvy=(o.vy||0)-(s.vy||0),a=rvx*rvx+rvy*rvy-speed*speed,b=2*(rx*rvx+ry*rvy),c=rx*rx+ry*ry;let t=null;
  if(Math.abs(a)<1e-9){if(Math.abs(b)>1e-9){const q=-c/b;if(q>0)t=q}}
