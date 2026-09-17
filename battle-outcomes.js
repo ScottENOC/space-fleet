@@ -31,9 +31,16 @@ function resolveSurrenderCapture(b){
   }
 }
 function livingTeams(b){return[...new Set(b.ships.filter(s=>!s.dead&&!s.escaped&&!s.surrendered).map(s=>s.team))]}
+function resolveCompletedObjectiveVictory(b){
+ if(!b.combatObjectiveType||!b.missionResult?.success)return;
+ const players=b.ships.filter(s=>s.team==='P'&&!s.missionProtectedShip&&!s.dead&&!s.escaped&&!s.surrendered);
+ const enemies=b.ships.filter(s=>s.team==='E'&&!s.dead&&!s.escaped&&!s.surrendered);
+ if(!players.length||!enemies.length)b.winner='P';
+}
 const baseStep=Battle.prototype.step;
 Battle.prototype.step=function(dt){
   const out=baseStep.call(this,dt);for(const s of this.ships)checkEscape(this,s);resolveSurrenderCapture(this);
   if(!this.winner){const teams=livingTeams(this);if(teams.length<=1){this.winner=teams[0]||'draw';}}
+  resolveCompletedObjectiveVictory(this);
   return out;
 };
