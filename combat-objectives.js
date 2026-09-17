@@ -35,13 +35,16 @@ function resolve(b){
  const st=ensure(b);if(!st||st.failed)return;
  if(st.type==='destroyTarget'){
   const t=target(b);if(!t)return;
-  if(!st.complete&&(t.dead||t.outcome==='captured')){
+  if(!st.complete&&t.escaped){
+   st.failed=true;b.missionResult={success:false,type:'destroyTarget',payoutFactor:0,reason:`${t.name} escaped`};b.winner='E';
+   b.log(`Targeted strike failed: ${t.name} escaped.`);
+  }else if(!st.complete&&t.dead&&t.outcome!=='captured'){
    st.complete=true;st.completedAt=b.t;
    b.missionResult={success:true,type:'destroyTarget',payoutFactor:1,summary:`Designated target ${t.name} destroyed; contract objective achieved.`};
    b.log(`PRIMARY OBJECTIVE COMPLETE: ${t.name} destroyed. Withdraw or continue engagement at captain's discretion.`);
-  }else if(!st.complete&&t.escaped){
-   st.failed=true;b.missionResult={success:false,type:'destroyTarget',payoutFactor:0,reason:`${t.name} escaped`};b.winner='E';
-   b.log(`Targeted strike failed: ${t.name} escaped.`);
+  }else if(!st.complete&&t.outcome==='captured'){
+   st.failed=true;b.missionResult={success:false,type:'destroyTarget',payoutFactor:0,reason:`${t.name} was captured rather than destroyed`};b.winner='E';
+   b.log(`Targeted strike failed: orders required destruction of ${t.name}, not capture.`);
   }
  }else if(st.type==='protectWithdrawal'){
   const p=protectedShip(b);if(!p)return;
