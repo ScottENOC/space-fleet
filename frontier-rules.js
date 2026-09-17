@@ -21,8 +21,8 @@ export function ensureFrontierState(){
  campaign.central??={standing:20,lawfulness:0,militaryPermit:false,auxiliary:false,violations:0};
  campaign.factionRep??={haven:5,pelagosA:0,pelagosB:0,kestrel:0,nadir:0};
  campaign.cargo??={};
- campaign.contractsCompleted??={trade:0,escort:0,scout:0,mercenary:0,smuggling:0,antiPiracy:0,interdiction:0};
- campaign.contractsCompleted.interdiction??=0;
+ campaign.contractsCompleted??={trade:0,escort:0,scout:0,mercenary:0,smuggling:0,antiPiracy:0,interdiction:0,tactical:0};
+ campaign.contractsCompleted.interdiction??=0;campaign.contractsCompleted.tactical??=0;
  campaign.knownSystems??=['Sol Gateway','Haven Reach','Pelagos','Kestrel','Nadir'];
  if(!SYSTEMS[campaign.location])campaign.location='Haven Reach';
  ensureFactionState();
@@ -89,6 +89,7 @@ export function buyTradingHulk(kind){
 
 function opposingFaction(kind,issuer,system){const powers=localPowers(system);if(kind==='antiPiracy')return powers.filter(x=>!x.faction.lawful).sort((a,b)=>b.presence-a.presence)[0]?.id||'redKnives';if(kind==='mercenary'){const rivals=powers.filter(x=>x.id!==issuer&&x.faction.kind==='government').sort((a,b)=>relation(issuer,a.id)-relation(issuer,b.id));return rivals[0]?.id||null}return null}
 function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location),person=issuerNpc(issuer,kind),targetFaction=opposingFaction(kind,issuer,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal',issuerNpc:person?.id||null,issuerNpcName:person?.name||null,targetFaction,targetFactionName:targetFaction?FACTIONS[targetFaction]?.name:null}}
+function tacticalContract(title,pay,text,missionType,kind='scout'){const c=contract(kind,title,pay,true,text);c.encounter='tacticalMission';c.missionType=missionType;c.targetFaction=null;c.targetFactionName=null;return c}
 export function generateContracts(){
  ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[];
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
@@ -100,6 +101,11 @@ export function generateContracts(){
    const intercept=contract('antiPiracy','Customs pursuit: fleeing merchants',390+Math.round((1-security)*210),true,'Five outbound civilian ships have broken inspection. Intelligence says one carries valuable restricted cargo. Identify the likely carrier, run it down, disable it without destroying it, and board to confirm the cargo.');
    intercept.encounter='interdiction';intercept.subkind='interdiction';intercept.runnerCount=5;intercept.targetFaction=null;intercept.targetFactionName=null;contracts.push(intercept);
  }
+ if(sys==='Haven Reach'||sys==='Pelagos')contracts.push(tacticalContract('Courier interception',420,'A priority courier carrying sensitive data is already accelerating away from patrol coverage. Catch it, disable propulsion and board before it reaches open space.','courierIntercept','antiPiracy'));
+ if(sys==='Pelagos'||sys==='Nadir')contracts.push(tacticalContract('Blockade-runner seizure',470,'A merchant vessel is attempting to run a local cordon with valuable cargo. Stop and seize it intact before it clears the interception volume.','blockadeRunner','antiPiracy'));
+ if(sys==='Kestrel'||sys==='Pelagos')contracts.push(tacticalContract('VIP extraction',520,'A protected person is aboard a fleeing transport. Disable the ship and recover the passenger alive; destroying the transport fails the contract.','vipExtraction','government'));
+ if(sys==='Nadir'||sys==='Kestrel')contracts.push(tacticalContract('Prisoner rescue',560,'A prisoner transport is racing toward a transfer rendezvous. Run it down, stop it and board before the hand-off window closes.','prisonerRescue','antiPiracy'));
+ if(sys==='Kestrel'||sys==='Nadir')contracts.push(tacticalContract('Derelict salvage race',330,'Another licensed salvage crew is converging on the same valuable derelict. First crew to match vectors and establish physical possession gets the claim. Weapons are not authorised.','salvageRace','scout'));
  contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
  if(sys==='Pelagos'||sys==='Nadir')contracts.push(contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.'));
  if(security<.6)contracts.push(contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.'));
