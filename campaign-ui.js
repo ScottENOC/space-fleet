@@ -1,6 +1,7 @@
 import {campaign,saveCampaign,resetCampaign,repairShip,setActiveShips,advanceDay,persistBattleResults} from './campaign-core.js';
 import {orderWithdraw,orderSurrender} from './battle-outcomes.js';
 import {SYSTEMS,GOODS,ensureFrontierState,activeFleetProfile,cargoUsed,cargoFree,gateDecision,applyInspection,marketPrice,tradeGood,buyTradingHulk,generateContracts,completeAbstractContract} from './frontier-rules.js';
+import {localPowers} from './factions-system.js?v=77';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const R=()=>Math.random();
@@ -13,7 +14,7 @@ const ENCOUNTERS=[
  {id:'distress',title:'Distress beacon',text:'A damaged civilian vessel is transmitting a weak distress call from contested space.',kind:'distress'},
  {id:'salvage',title:'Derelict contact',text:'A cold hull is drifting without transponder or drive signature.',kind:'salvage'}
 ];
-function choices(){let pool=[...ENCOUNTERS];if(campaign.location==='Nadir')pool.push(ENCOUNTERS.find(x=>x.kind==='fight'));if(campaign.location==='Kestrel')pool.push(ENCOUNTERS.find(x=>x.kind==='explore'));if(campaign.location==='Pelagos')pool.push(ENCOUNTERS.find(x=>x.kind==='trade'));return pool.sort(()=>R()-.5).slice(0,3)}
+function choices(){const pirates=localPowers(campaign.location).some(x=>!x.faction.lawful&&x.presence>.055);let pool=ENCOUNTERS.filter(e=>e.kind!=='fight'||pirates);if(campaign.location==='Nadir'&&pirates)pool.push(ENCOUNTERS.find(x=>x.kind==='fight'));if(campaign.location==='Kestrel')pool.push(ENCOUNTERS.find(x=>x.kind==='explore'));if(campaign.location==='Pelagos')pool.push(ENCOUNTERS.find(x=>x.kind==='trade'));return pool.sort(()=>R()-.5).slice(0,3)}
 let currentChoices=[];
 
 function install(){
