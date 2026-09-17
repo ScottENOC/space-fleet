@@ -1,15 +1,15 @@
-import {campaign} from './campaign-core.js';
+import {campaign,saveCampaign} from './campaign-core.js';
 import {blueprintToShip,canPlace,placeModule,MODULES,HULLS} from './shipyard.js';
 import {makePremade} from './premades.js';
 import './craft-catalog.js';
 import {FACTIONS,localPowers} from './factions-system.js?v=77';
-import {factionForcePlan,hullAllowedByPlan} from './faction-strategy.js?v=77';
+import {factionForcePlan,hullAllowedByPlan,commitFactionForce} from './faction-strategy.js?v=77';
 import {installSpecialisation,applySpecialisations} from './ship-specialisations.js?v=70';
 
 export const FACTION_FLEET_IDENTITIES={
- central:{label:'Central Navy',hulls:['destroyer_guardian','cruiser_line','battleship_line'],doctrine:'broadside',priority:['weapons','engine','reactor','bridge','shield','radiator','armor','hull'],style:'Layered defence, disciplined fire control and conservative redundancy.',specialisations:['centralFireControl']},
+ central:{label:'Central Navy',hulls:['frigate_line','destroyer_guardian','cruiser_line','battleship_line'],doctrine:'broadside',priority:['weapons','engine','reactor','bridge','shield','radiator','armor','hull'],style:'Layered defence, disciplined fire control and conservative redundancy.',specialisations:['centralFireControl']},
  haven:{label:'Haven Patrol',hulls:['frigate_line','destroyer_guardian','cruiser_pathfinder'],doctrine:'broadside',priority:['weapons','engine','bridge','reactor','shield','radiator','armor','hull'],style:'Escort-oriented generalists with dependable close defence.',specialisations:['havenEscort']},
- pelagosA:{label:'Compact Defence Fleet',hulls:['destroyer_rapier','cruiser_line'],doctrine:'pursuit',priority:['weapons','engine','reactor','bridge','shield','armor','hull'],style:'Coordinated missile pressure built around the restricted Asterion missile family.',specialisations:['asterion']},
+ pelagosA:{label:'Compact Defence Fleet',hulls:['frigate_dart','destroyer_rapier','cruiser_line'],doctrine:'pursuit',priority:['weapons','engine','reactor','bridge','shield','armor','hull'],style:'Coordinated missile pressure built around the restricted Asterion missile family.',specialisations:['asterion']},
  pelagosB:{label:'Free Port Security',hulls:['frigate_dart','destroyer_rapier','cruiser_pathfinder'],doctrine:'pursuit',priority:['engine','weapons','bridge','reactor','shield','armor','hull'],style:'Fast, commercially minded ships that favour mobility and disengagement options.',specialisations:['freePortDrive']},
  kestrel:{label:'Kestrel Colonial Fleet',hulls:['frigate_line','destroyer_guardian'],doctrine:'broadside',priority:['weapons','engine','reactor','bridge','armor','hull'],style:'Practical mixed batteries designed to keep functioning far from support.',specialisations:['frontierRepair']},
  nadir:{label:'Nadir League Fleet',hulls:['frigate_dart','frigate_line','destroyer_rapier'],doctrine:'pursuit',priority:['engine','weapons','bridge','reactor','armor','hull'],style:'Rugged local defence craft with little wasted mass.',specialisations:['frontierRepair']},
@@ -45,6 +45,6 @@ export function makeMysteryEnemyFleet(truth,playerCount=1){
  return[];
 }
 export function encounterEnemyFaction(enc=campaign.pendingEncounter){if(enc?.targetFaction&&FACTIONS[enc.targetFaction])return enc.targetFaction;if(enc?.centralPatrol)return'central';if(enc?.contract?.targetFaction)return enc.contract.targetFaction;if(enc?.contract?.kind==='antiPiracy'){const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}if(enc?.contract?.kind==='mercenary')return enc.contract.targetFaction||'pelagosB';const local=localPowers(campaign.location).filter(x=>!x.faction.lawful);return local[0]?.id||'redKnives'}
-export function campaignEnemyFleet(playerCount=1){const enc=campaign.pendingEncounter;if(enc?.kind==='mystery'&&enc.mysteryTruth)return makeMysteryEnemyFleet(enc.mysteryTruth,playerCount);const faction=encounterEnemyFaction(),purpose=enc?.contract?.kind==='antiPiracy'?'defence':enc?.contract?.kind||'general';const requested=Math.max(1,Math.min(3,playerCount+((campaign.factions?.[faction]?.military||20)>45?1:0)));const plan=factionForcePlan(faction,campaign.location,requested,purpose);const count=Math.max(1,plan.count||0);const fleet=makeFactionEnemyFleet(faction,count,plan);for(const s of fleet)s.strategicForceReason=plan.reason;return fleet}
+export function campaignEnemyFleet(playerCount=1){const enc=campaign.pendingEncounter;if(enc?.kind==='mystery'&&enc.mysteryTruth)return makeMysteryEnemyFleet(enc.mysteryTruth,playerCount);const faction=encounterEnemyFaction(),purpose=enc?.contract?.kind==='antiPiracy'?'defence':enc?.contract?.kind||'general';let plan=enc?.strategicForcePlan;if(!plan){const requested=Math.max(1,Math.min(3,playerCount+((campaign.factions?.[faction]?.military||20)>45?1:0)));plan=factionForcePlan(faction,campaign.location,requested,purpose);if(enc){enc.strategicForcePlan=plan;enc.strategicFaction=faction;commitFactionForce(faction,plan);saveCampaign(campaign)}}const count=Math.max(1,plan.count||0);const fleet=makeFactionEnemyFleet(faction,count,plan);for(const s of fleet)s.strategicForceReason=plan.reason;return fleet}
 
 if(typeof window!=='undefined')window.__factionFleetIdentity={FACTION_FLEET_IDENTITIES,makeFactionBlueprint,makeFactionEnemyFleet,makeMysteryEnemyFleet,encounterEnemyFaction};
