@@ -58,8 +58,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
       campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));playerCombatCount=playerShips.length;
       if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
-      }else if(enc?.kind==='interdiction'){
-        nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||5);
+      }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
+        nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||enc.contract?.runnerCount||5);
       }else enemyShips=campaignEnemyFleet(persistent.length);
     }
   }
