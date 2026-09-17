@@ -21,7 +21,8 @@ export function ensureFrontierState(){
  campaign.central??={standing:20,lawfulness:0,militaryPermit:false,auxiliary:false,violations:0};
  campaign.factionRep??={haven:5,pelagosA:0,pelagosB:0,kestrel:0,nadir:0};
  campaign.cargo??={};
- campaign.contractsCompleted??={trade:0,escort:0,scout:0,mercenary:0,smuggling:0,antiPiracy:0};
+ campaign.contractsCompleted??={trade:0,escort:0,scout:0,mercenary:0,smuggling:0,antiPiracy:0,interdiction:0};
+ campaign.contractsCompleted.interdiction??=0;
  campaign.knownSystems??=['Sol Gateway','Haven Reach','Pelagos','Kestrel','Nadir'];
  if(!SYSTEMS[campaign.location])campaign.location='Haven Reach';
  ensureFactionState();
@@ -94,6 +95,10 @@ export function generateContracts(){
  if(sys==='Kestrel'||sys==='Nadir'){
    const hazard=contract('escort','Meteor-swarm convoy escort',260+Math.round((1-security)*240),true,'Escort civilian transports through a charted meteor swarm. Shared sensor tracks let the convoy evade; defensive fire and physical screening may be needed.');
    hazard.encounter='meteorSwarm';hazard.convoyCount=sys==='Nadir'?3:2;contracts.push(hazard);
+ }
+ if(['Haven Reach','Pelagos','Kestrel'].includes(sys)){
+   const intercept=contract('antiPiracy','Customs pursuit: fleeing merchants',390+Math.round((1-security)*210),true,'Five outbound civilian ships have broken inspection. Intelligence says one carries valuable restricted cargo. Identify the likely carrier, run it down, disable it without destroying it, and board to confirm the cargo.');
+   intercept.encounter='interdiction';intercept.subkind='interdiction';intercept.runnerCount=5;intercept.targetFaction=null;intercept.targetFactionName=null;contracts.push(intercept);
  }
  contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
  if(sys==='Pelagos'||sys==='Nadir')contracts.push(contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.'));
