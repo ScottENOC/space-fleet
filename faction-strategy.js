@@ -11,8 +11,9 @@ function basePresence(system,id){return (SYSTEM_POWERS[system]||[]).find(x=>x.id
 function ensurePresence(){campaign.factionPresence??={};for(const [system,entries] of Object.entries(SYSTEM_POWERS)){campaign.factionPresence[system]??={};for(const e of entries)if(!Number.isFinite(campaign.factionPresence[system][e.id]))campaign.factionPresence[system][e.id]=e.presence}}
 function postureFor(state,id){const base=BASE[id]||{military:20};const ratio=(state.military||0)/Math.max(1,base.military),p=state.pressure||0;if((state.military||0)<8||ratio<.28||p>78)return'critical';if(ratio<.50||p>58)return'defensive';if(ratio<.72||p>38)return'strained';return'normal'}
 function strategicLabel(p){return p==='critical'?'core defence only':p==='defensive'?'concentrating forces':p==='strained'?'reduced projection':'normal operations'}
-function hostilePressure(id){let weighted=0,footprint=0;for(const [system,entries] of Object.entries(campaign.factionPresence||{})){const own=entries[id]||0;if(own<=.01)continue;footprint+=own;for(const [other,pres] of Object.entries(entries)){if(other===id||pres<=.01)continue;const r=relation(id,other);if(r<0)weighted+=own*pres*clamp(-r/70,0,1.5)}}return clamp((weighted/Math.max(.35,footprint))*82,0,100)}
+function hostilePressure(id){let weighted=0,footprint=0;for(const entries of Object.values(campaign.factionPresence||{})){const own=entries[id]||0;if(own<=.01)continue;footprint+=own;for(const [other,pres] of Object.entries(entries)){if(other===id||pres<=.01)continue;const r=relation(id,other);if(r<0)weighted+=own*pres*clamp(-r/70,0,1.5)}}return clamp((weighted/Math.max(.35,footprint))*82,0,100)}
 function systemThreat(id,system){const entries=campaign.factionPresence?.[system]||{};let x=0;for(const [other,p] of Object.entries(entries)){if(other===id||p<=.01)continue;const r=relation(id,other);if(r<0)x+=p*clamp(-r/75,0,1.4)}return clamp(x,0,1.5)}
+function logPostureChange(id,oldPosture,newPosture){if(oldPosture===newPosture)return;campaign.log??=[];const name=FACTIONS[id]?.short||id;if(newPosture==='critical')campaign.log.push(`Day ${campaign.day}: ${name} has pulled back to core defence after sustained pressure.`);else if(newPosture==='defensive')campaign.log.push(`Day ${campaign.day}: ${name} is concentrating forces and reducing peripheral commitments.`);else if(newPosture==='strained')campaign.log.push(`Day ${campaign.day}: ${name} is under pressure; long-range deployments are being cut back.`);else if(oldPosture&&newPosture==='normal')campaign.log.push(`Day ${campaign.day}: ${name} has recovered enough strength to resume normal operations.`);campaign.log=campaign.log.slice(-50)}
 
 export function ensureStrategicFactionState(){
  campaign.factions??={};ensurePresence();let dirty=false;
@@ -25,16 +26,16 @@ export function ensureStrategicFactionState(){
 
 function stepOneDay(){ensureStrategicFactionState();
  for(const [id,s] of Object.entries(campaign.factions)){
-  const b=BASE[id]||{power:20,wealth:20,military:20};
-  const pressure=hostilePressure(id);s.pressure=clamp(s.pressure*.82+pressure*.18,0,100);
+  const pressure=hostilePressure(id),oldPosture=s.posture||'normal';s.pressure=clamp(s.pressure*.82+pressure*.18,0,100);
   const footprint=Object.values(campaign.factionPresence).reduce((n,m)=>n+(m[id]||0),0);
-  const income=(.05+.035*footprint)*(id==='meridian'?1.45:id==='orpheus'?1.25:1),upkeep=.018*(s.military||0)+.012*(s.readiness||0);
-  s.wealth=clamp((s.wealth||0)+income-upkeep-s.pressure*.0025,0,100);
-  const recovery=Math.max(0,(s.wealth-18)*.0028+(s.power||0)*.0012),attrition=Math.max(0,s.pressure-28)*.0052;
+  const commercial=id==='meridian'?1.45:id==='orpheus'?1.25:1;
+  const income=(.08+.045*footprint)*commercial,upkeep=.0012*(s.military||0)+.0007*(s.readiness||0);
+  s.wealth=clamp((s.wealth||0)+income-upkeep-s.pressure*.0018,0,100);
+  const recovery=Math.max(0,(s.wealth-18)*.0024+(s.power||0)*.0010),attrition=Math.max(0,s.pressure-28)*.0046;
   s.military=clamp((s.military||0)+recovery-attrition,0,100);
-  s.readiness=clamp((s.readiness||0)+(.10+(s.wealth||0)*.002)-s.pressure*.003,10,100);
-  s.power=clamp((s.power||0)*.992+((s.military||0)*.56+(s.wealth||0)*.44)*.008,0,100);
-  s.posture=postureFor(s,id);s.status=(s.military<3&&s.power<8)?'fragmented':'active';s.lastStrategicDay=campaign.day;
+  s.readiness=clamp((s.readiness||0)+(.13+(s.wealth||0)*.0022)-s.pressure*.0034,10,100);
+  s.power=clamp((s.power||0)*.993+((s.military||0)*.56+(s.wealth||0)*.44)*.007,0,100);
+  s.posture=postureFor(s,id);logPostureChange(id,oldPosture,s.posture);s.status=(s.military<3&&s.power<8)?'fragmented':'active';s.lastStrategicDay=campaign.day;
   const projection=s.posture==='critical'?.20:s.posture==='defensive'?.42:s.posture==='strained'?.70:1;
   for(const system of Object.keys(SYSTEM_POWERS)){
    campaign.factionPresence[system]??={};const base=basePresence(system,id),home=FACTIONS[id]?.home===system,cur=campaign.factionPresence[system][id]||0,threat=systemThreat(id,system);
@@ -55,12 +56,14 @@ export function factionForcePlan(id,system=campaign.location,requested=1,purpose
  const x=factionStrategicSummary(id,system);if(!x)return{count:1,maxClass:1,posture:'normal',presence:0,reason:'unknown force'};
  const core=x.home||x.presence>=.58,defence=purpose==='defence'||purpose==='antiPiracy';let count=Math.max(0,Math.round(requested));
  if(x.presence<.035&&!core)count=0;else if(x.posture==='critical')count=core?Math.min(2,Math.max(1,count)):Math.min(1,count);else if(x.posture==='defensive')count=core?Math.min(3,Math.max(1,count)):Math.min(1,count);else if(x.posture==='strained')count=Math.min(2,Math.max(1,count));else count=Math.min(3,Math.max(1,count));
- if(defence&&core&&x.posture!=='critical')count=Math.min(3,Math.max(count,2));
- let maxClass=x.military>=62?4:x.military>=34?3:x.military>=18?2:1;if(!core&&x.posture==='defensive')maxClass=Math.min(maxClass,2);if(x.posture==='critical')maxClass=1;
+ if(x.readiness<25)count=Math.min(count,1);else if(x.readiness<45)count=Math.min(count,2);
+ if(defence&&core&&x.posture!=='critical'&&x.readiness>=45)count=Math.min(3,Math.max(count,2));
+ let maxClass=x.military>=62?4:x.military>=34?3:x.military>=18?2:1;if(x.readiness<32)maxClass=Math.min(maxClass,2);if(!core&&x.posture==='defensive')maxClass=Math.min(maxClass,2);if(x.posture==='critical')maxClass=1;
  return{...x,count,maxClass,core,purpose,reason:core?`forces concentrated around ${system}`:`${x.postureLabel} at ${system}`};
 }
+export function commitFactionForce(id,plan){ensureStrategicFactionState();const s=campaign.factions?.[id];if(!s||!plan)return null;const cost=Math.max(0,plan.count||0)*(plan.core?2.2:4.8)*(1+(plan.maxClass||1)*.18);s.readiness=clamp((s.readiness||0)-cost,10,100);s.wealth=clamp((s.wealth||0)-Math.max(0,plan.count||0)*.22,0,100);s.posture=postureFor(s,id);saveCampaign(campaign);return{readinessCost:cost,readiness:s.readiness}}
 export function hullAllowedByPlan(hull,plan){return (CLASS_RANK[hull?.shipClass]||1)<=Math.max(1,plan?.maxClass||1)}
-export function applyFactionLosses(id,{military=0,power=0,wealth=0,presenceSystem=campaign.location,presence=0}={}){ensureStrategicFactionState();const s=campaign.factions?.[id];if(!s)return null;s.military=clamp((s.military||0)-military,0,100);s.power=clamp((s.power||0)-power,0,100);s.wealth=clamp((s.wealth||0)-wealth,0,100);s.readiness=clamp((s.readiness||0)-military*.7,10,100);s.pressure=clamp((s.pressure||0)+military*.9,0,100);s.posture=postureFor(s,id);if(presenceSystem&&campaign.factionPresence?.[presenceSystem])campaign.factionPresence[presenceSystem][id]=clamp((campaign.factionPresence[presenceSystem][id]||0)-presence,0,1.15);saveCampaign(campaign);return s}
+export function applyFactionLosses(id,{military=0,power=0,wealth=0,presenceSystem=campaign.location,presence=0}={}){ensureStrategicFactionState();const s=campaign.factions?.[id];if(!s)return null;const old=s.posture||'normal';s.military=clamp((s.military||0)-military,0,100);s.power=clamp((s.power||0)-power,0,100);s.wealth=clamp((s.wealth||0)-wealth,0,100);s.readiness=clamp((s.readiness||0)-military*.7,10,100);s.pressure=clamp((s.pressure||0)+military*.9,0,100);s.posture=postureFor(s,id);logPostureChange(id,old,s.posture);if(presenceSystem&&campaign.factionPresence?.[presenceSystem])campaign.factionPresence[presenceSystem][id]=clamp((campaign.factionPresence[presenceSystem][id]||0)-presence,0,1.15);saveCampaign(campaign);return s}
 
 ensureStrategicFactionState();advanceFactionStrategy(campaign.day);
-if(typeof window!=='undefined'){window.__factionStrategy={advanceFactionStrategy,factionStrategicSummary,factionForcePlan,applyFactionLosses};setInterval(()=>advanceFactionStrategy(campaign.day),1200)}
+if(typeof window!=='undefined'){window.__factionStrategy={advanceFactionStrategy,factionStrategicSummary,factionForcePlan,commitFactionForce,applyFactionLosses};setInterval(()=>advanceFactionStrategy(campaign.day),1200)}
