@@ -2,7 +2,7 @@ import {Battle,initialiseShip,buildPursuitFrigate} from './sim.js';
 import {blueprintToShip} from './shipyard.js';
 import {makeTradingPremade} from './trading-hulks.js';
 import {campaign,activePlayerShips,instantiateCampaignShip,applySavedState} from './campaign-core.js';
-import {campaignEnemyFleet} from './faction-fleet-identity.js?v=77';
+import {campaignEnemyFleet,makeFactionEnemyFleet} from './faction-fleet-identity.js?v=77';
 
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
@@ -63,9 +63,10 @@ function makeTacticalMissionShips(type){
   }
   return{enemy:[],friendly:[]};
 }
+function markLargestTarget(fleet){const t=[...fleet].sort((a,b)=>(b.grid?.validCells?.length||b.modules?.length||0)-(a.grid?.validCells?.length||a.modules?.length||0))[0];if(t){t.missionObjectiveTarget=true;t.name=`${t.name} — designated target`}return t}
 
 export function createFleetBattle(playerShips,enemyShips,seed=1){
-  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length,missionType=null;
+  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length,missionType=null,combatObjectiveType=null;
   if(typeof window!=='undefined'&&window.__campaignActive){
     const persistent=activePlayerShips(),enc=campaign.pendingEncounter;
     if(persistent.length){
@@ -76,6 +77,14 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
         nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||enc.contract?.runnerCount||5);
       }else if(enc?.kind==='tacticalMission'||enc?.contract?.encounter==='tacticalMission'){
         nonCombatScenario='tacticalMission';missionType=enc.missionType||enc.contract?.missionType;const setup=makeTacticalMissionShips(missionType);enemyShips=setup.enemy;playerShips=[...playerShips,...setup.friendly];
+      }else if(enc?.contract?.encounter==='combatObjective'){
+        combatObjectiveType=enc.contract.objectiveType||'destroyTarget';enemyShips=campaignEnemyFleet(persistent.length);
+        if(combatObjectiveType==='destroyTarget')markLargestTarget(enemyShips);
+        else if(combatObjectiveType==='protectWithdrawal'){
+          const issuer=enc.contract.issuer||'haven',protectedShip=makeFactionEnemyFleet(issuer,1)[0];
+          protectedShip.missionProtectedShip=true;protectedShip.civilianEscort=true;protectedShip.name=`${protectedShip.name} — protected withdrawal`;
+          playerShips=[...playerShips,protectedShip];
+        }
       }else enemyShips=campaignEnemyFleet(persistent.length);
     }
   }
@@ -92,8 +101,10 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     s.ramPolicy=team==='P'?'discretion':null;
     const lane=(i-(team==='P'?(playerShips.length-1)/2:(enemyShips.length-1)/2))*420;
     Object.assign(s,{x:team==='P'?-1500:1500,y:lane,angle:team==='P'?.08:Math.PI+.08,vx:0,vy:0,omega:0,dead:false,escaped:false,surrendered:false});
+    if(s.missionProtectedShip){s.withdrawOrder=true;s.ramPolicy='avoid';s.formationDiscipline='independent';s.order='PROTECTED WITHDRAWAL'}
     return s;
   });
+  b.combatObjectiveType=combatObjectiveType;
   if(nonCombatScenario){
     b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;b.missionType=missionType;
     if(nonCombatScenario==='meteorEscort'){

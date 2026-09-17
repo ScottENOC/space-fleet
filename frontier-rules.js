@@ -91,6 +91,7 @@ export function buyTradingHulk(kind){
 function opposingFaction(kind,issuer,system){const powers=localPowers(system);if(kind==='antiPiracy')return powers.filter(x=>!x.faction.lawful&&x.presence>.05).sort((a,b)=>b.presence-a.presence)[0]?.id||null;if(kind==='mercenary'){const rivals=powers.filter(x=>x.id!==issuer&&x.faction.kind==='government'&&x.presence>.06).sort((a,b)=>relation(issuer,a.id)-relation(issuer,b.id));return rivals[0]?.id||null}return null}
 function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location),person=issuerNpc(issuer,kind),targetFaction=opposingFaction(kind,issuer,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal',issuerNpc:person?.id||null,issuerNpcName:person?.name||null,targetFaction,targetFactionName:targetFaction?FACTIONS[targetFaction]?.name:null}}
 function tacticalContract(title,pay,text,missionType,kind='scout'){const c=contract(kind,title,pay,true,text);c.encounter='tacticalMission';c.missionType=missionType;c.targetFaction=null;c.targetFactionName=null;return c}
+function combatObjectiveContract(title,pay,text,objectiveType){const c=contract('antiPiracy',title,pay,true,text);c.encounter='combatObjective';c.objectiveType=objectiveType;return c}
 export function generateContracts(){
  ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[],powers=localPowers(sys);
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
@@ -107,11 +108,17 @@ export function generateContracts(){
  if(sys==='Kestrel'||sys==='Pelagos')contracts.push(tacticalContract('VIP extraction',520,'A protected person is aboard a fleeing transport. Disable the ship and recover the passenger alive; destroying the transport fails the contract.','vipExtraction','government'));
  if(sys==='Nadir'||sys==='Kestrel')contracts.push(tacticalContract('Prisoner rescue',560,'A prisoner transport is racing toward a transfer rendezvous. Run it down, stop it and board before the hand-off window closes.','prisonerRescue','antiPiracy'));
  if(sys==='Kestrel'||sys==='Nadir')contracts.push(tacticalContract('Derelict salvage race',330,'Another licensed salvage crew is converging on the same valuable derelict. First crew to match vectors and establish physical possession gets the claim. Weapons are not authorised.','salvageRace','scout'));
+ const hostileRaiders=powers.filter(x=>!x.faction.lawful&&x.presence>.06);
+ if(hostileRaiders.length){
+   const strike=combatObjectiveContract('Targeted strike: destroy flagship',640+Math.round((1-security)*220),'Intelligence has identified a specific high-value raider warship operating with escorts. Destroy that vessel. Once the target is gone, you may disengage immediately or continue the battle.','destroyTarget');
+   if(strike.targetFaction&&factionForcePlan(strike.targetFaction,sys,3,'strike').count>0)contracts.push(strike);
+   const cover=combatObjectiveContract('Cover withdrawal',470+Math.round((1-security)*180),'A friendly patrol ship is exposed and must disengage under pressure. Keep the designated vessel alive until it escapes; after that, withdrawal or continued engagement are both acceptable.','protectWithdrawal');
+   if(cover.targetFaction&&factionForcePlan(cover.targetFaction,sys,2,'raid').count>0)contracts.push(cover);
+ }
  contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
  const governments=powers.filter(x=>x.faction.kind==='government'&&x.presence>.06);
  if((sys==='Pelagos'||sys==='Nadir')&&governments.length>=2){const c=contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.');if(c.targetFaction&&factionForcePlan(c.targetFaction,sys,2,'war').count>0)contracts.push(c)}
- const pirates=powers.filter(x=>!x.faction.lawful&&x.presence>.06);
- if(security<.6&&pirates.length){const c=contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.');if(c.targetFaction&&factionForcePlan(c.targetFaction,sys,2,'raid').count>0)contracts.push(c)}
+ if(security<.6&&hostileRaiders.length){const c=contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.');if(c.targetFaction&&factionForcePlan(c.targetFaction,sys,2,'raid').count>0)contracts.push(c)}
  if(authority<.6)contracts.push(contract('smuggling','Quiet cargo movement',360+Math.round(authority*180),false,'Move restricted cargo through a gate without attracting official attention.'));
  if((campaign.central.standing||0)>55)contracts.push(contract('government','Central Government special tasking',500,true,'A naval liaison wants a deniable, experienced independent fleet for sensitive work.'));
  return contracts;
