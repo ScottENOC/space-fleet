@@ -40,6 +40,15 @@ function makeHazardConvoy(count=2){
    s.name=`Convoy merchant ${i+1}`;s.civilianEscort=true;s.hazardConvoyIndex=i;s.ai='pursuit';return s;
  });
 }
+function makeInterdictionRunners(count=5){
+ const names=['Kestrel Finch','Blue Meridian','Sable Fox','Quiet Fortune','Lucky Star'];
+ return Array.from({length:Math.max(1,count)},(_,i)=>{
+   const bp=makeTradingPremade('trader_mule'),s=blueprintToShip(bp,'E');
+   s.name=names[i]||`Outbound merchant ${i+1}`;s.interdictionRunner=true;s.ai='pursuit';
+   const driveScale=[1.08,1.00,1.13,.96,1.05][i%5];for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*driveScale;
+   return s;
+ });
+}
 
 export function createFleetBattle(playerShips,enemyShips,seed=1){
   let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length;
@@ -49,6 +58,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
       campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));playerCombatCount=playerShips.length;
       if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
+      }else if(enc?.kind==='interdiction'){
+        nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||5);
       }else enemyShips=campaignEnemyFleet(persistent.length);
     }
   }
@@ -69,9 +80,15 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
   });
   if(nonCombatScenario){
     b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;
-    const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
-    combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
-    civ.forEach((s,i)=>Object.assign(s,{x:-1450,y:(i-(civ.length-1)/2)*320,angle:0}));
+    if(nonCombatScenario==='meteorEscort'){
+      const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
+      combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
+      civ.forEach((s,i)=>Object.assign(s,{x:-1450,y:(i-(civ.length-1)/2)*320,angle:0}));
+    }else if(nonCombatScenario==='smugglerInterdiction'){
+      const ps=b.ships.filter(s=>s.team==='P'),rs=b.ships.filter(s=>s.interdictionRunner);
+      ps.forEach((s,i)=>Object.assign(s,{x:-1750,y:(i-(ps.length-1)/2)*260,angle:0,vx:70,vy:0}));
+      rs.forEach((s,i)=>Object.assign(s,{x:900+i*170,y:(i-(rs.length-1)/2)*420,angle:0,vx:210+i*18,vy:0}));
+    }
   }
   b.projectiles=[];b.events=[];b.winner=null;b.t=0;
   if(typeof window!=='undefined')window.__fleetBattle=b;
