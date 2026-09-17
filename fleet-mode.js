@@ -7,7 +7,7 @@ import {campaignEnemyFleet} from './faction-fleet-identity.js?v=73';
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
 function nearestEnemy(battle,s){
-  const enemies=battle.ships.filter(o=>!o.dead&&o.team!==s.team);
+  const enemies=battle.ships.filter(o=>!o.dead&&o.team!==s.team&&!o.missionNonHostile&&!o.missionDerelict);
   if(!enemies.length)return null;
   const ordered=s.commandTargetId?enemies.find(o=>o.uid===s.commandTargetId):null;
   if(ordered)return ordered;
@@ -17,7 +17,7 @@ function nearestEnemy(battle,s){
 Battle.prototype.enemy=function(s){return nearestEnemy(this,s)};
 Battle.prototype.checkDeaths=function(){
   for(const s of this.ships){
-    if(s.dead)continue;
+    if(s.dead||s.missionDerelict)continue;
     const hull=s.modules.find(m=>m.id==='keel');
     const bridge=s.modules.some(m=>m.type==='bridge'&&m.hp>0&&!m.disabled);
     const reactor=s.modules.some(m=>m.type==='reactor'&&m.hp>0&&!m.disabled);
@@ -27,7 +27,7 @@ Battle.prototype.checkDeaths=function(){
       this.log(`${s.name} is combat ineffective.`);
     }
   }
-  const livingTeams=[...new Set(this.ships.filter(s=>!s.dead&&!s.escaped&&!s.surrendered).map(s=>s.team))];
+  const livingTeams=[...new Set(this.ships.filter(s=>!s.dead&&!s.escaped&&!s.surrendered&&!s.missionNonHostile&&!s.missionDerelict).map(s=>s.team))];
   if(livingTeams.length<=1){
     this.winner=livingTeams[0]||'draw';
     if(livingTeams[0])for(const s of this.ships)if(!s.dead&&s.team===livingTeams[0])s.kills++;
@@ -49,9 +49,23 @@ function makeInterdictionRunners(count=5){
    return s;
  });
 }
+function scaleDrives(s,factor){for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*factor;return s}
+function missionShip(hull,name,team='E',drive=1){const s=blueprintToShip(makeTradingPremade(hull),team);s.name=name;s.ai='pursuit';scaleDrives(s,drive);return s}
+function makeTacticalMissionShips(type){
+  if(type==='courierIntercept'){const s=missionShip('trader_mule','Fast courier','E',1.42);s.missionTarget=true;return{enemy:[s],friendly:[]}}
+  if(type==='blockadeRunner'){const s=missionShip('trader_caravan','Blockade runner','E',1.20);s.missionTarget=true;return{enemy:[s],friendly:[]}}
+  if(type==='vipExtraction'){const s=missionShip('trader_caravan','VIP transport','E',1.08);s.missionTarget=true;return{enemy:[s],friendly:[]}}
+  if(type==='prisonerRescue'){const s=missionShip('trader_caravan','Prison transport','E',1.12);s.missionTarget=true;return{enemy:[s],friendly:[]}}
+  if(type==='salvageRace'){
+    const rival=missionShip('trader_mule','Rival salvage tug','E',.84);rival.missionNonHostile=true;rival.missionRival=true;
+    const wreck=missionShip('trader_mule','Derelict prize','P',1);wreck.missionDerelict=true;wreck.civilianEscort=true;wreck.ai='pursuit';
+    return{enemy:[rival],friendly:[wreck]};
+  }
+  return{enemy:[],friendly:[]};
+}
 
 export function createFleetBattle(playerShips,enemyShips,seed=1){
-  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length;
+  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length,missionType=null;
   if(typeof window!=='undefined'&&window.__campaignActive){
     const persistent=activePlayerShips(),enc=campaign.pendingEncounter;
     if(persistent.length){
@@ -60,6 +74,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
       }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
         nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||enc.contract?.runnerCount||5);
+      }else if(enc?.kind==='tacticalMission'||enc?.contract?.encounter==='tacticalMission'){
+        nonCombatScenario='tacticalMission';missionType=enc.missionType||enc.contract?.missionType;const setup=makeTacticalMissionShips(missionType);enemyShips=setup.enemy;playerShips=[...playerShips,...setup.friendly];
       }else enemyShips=campaignEnemyFleet(persistent.length);
     }
   }
@@ -79,7 +95,7 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     return s;
   });
   if(nonCombatScenario){
-    b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;
+    b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;b.missionType=missionType;
     if(nonCombatScenario==='meteorEscort'){
       const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
       combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
@@ -88,6 +104,12 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
       const ps=b.ships.filter(s=>s.team==='P'),rs=b.ships.filter(s=>s.interdictionRunner);
       ps.forEach((s,i)=>Object.assign(s,{x:-1750,y:(i-(ps.length-1)/2)*260,angle:0,vx:70,vy:0}));
       rs.forEach((s,i)=>Object.assign(s,{x:900+i*170,y:(i-(rs.length-1)/2)*420,angle:0,vx:210+i*18,vy:0}));
+    }else if(nonCombatScenario==='tacticalMission'){
+      const ps=b.ships.filter(s=>s.team==='P'&&!s.missionDerelict),target=b.ships.find(s=>s.missionTarget),rival=b.ships.find(s=>s.missionRival),wreck=b.ships.find(s=>s.missionDerelict);
+      ps.forEach((s,i)=>Object.assign(s,{x:-1800,y:(i-(ps.length-1)/2)*260,angle:0,vx:60,vy:0}));
+      if(target)Object.assign(target,{x:900,y:0,angle:0,vx:missionType==='courierIntercept'?330:missionType==='blockadeRunner'?260:220,vy:0});
+      if(wreck)Object.assign(wreck,{x:3600,y:0,angle:0,vx:0,vy:0,throttle:0});
+      if(rival)Object.assign(rival,{x:-650,y:420,angle:0,vx:80,vy:0});
     }
   }
   b.projectiles=[];b.events=[];b.winner=null;b.t=0;
