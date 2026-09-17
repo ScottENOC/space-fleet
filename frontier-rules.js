@@ -1,7 +1,8 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {HULLS,MODULES} from './shipyard.js';
 import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './trading-hulks.js';
-import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=68';
+import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=77';
+import {factionForcePlan} from './faction-strategy.js?v=77';
 import {issuerNpc,recordNpcContract} from './campaign-npcs.js?v=69';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -87,11 +88,11 @@ export function buyTradingHulk(kind){
  const bp=makeTradingPremade(kind);bp.name=name;const entry={id:'ship_'+Math.random().toString(36).slice(2,10),name,blueprint:bp,status:'active',xp:0,battles:0,kills:0,state:null,history:[`Day ${campaign.day}: purchased at ${campaign.location}.`]};campaign.ships.push(entry);saveCampaign(campaign);return entry;
 }
 
-function opposingFaction(kind,issuer,system){const powers=localPowers(system);if(kind==='antiPiracy')return powers.filter(x=>!x.faction.lawful).sort((a,b)=>b.presence-a.presence)[0]?.id||'redKnives';if(kind==='mercenary'){const rivals=powers.filter(x=>x.id!==issuer&&x.faction.kind==='government').sort((a,b)=>relation(issuer,a.id)-relation(issuer,b.id));return rivals[0]?.id||null}return null}
+function opposingFaction(kind,issuer,system){const powers=localPowers(system);if(kind==='antiPiracy')return powers.filter(x=>!x.faction.lawful&&x.presence>.05).sort((a,b)=>b.presence-a.presence)[0]?.id||null;if(kind==='mercenary'){const rivals=powers.filter(x=>x.id!==issuer&&x.faction.kind==='government'&&x.presence>.06).sort((a,b)=>relation(issuer,a.id)-relation(issuer,b.id));return rivals[0]?.id||null}return null}
 function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaign.location),person=issuerNpc(issuer,kind),targetFaction=opposingFaction(kind,issuer,campaign.location);return{kind,title,pay,legal,text,issuer,issuerName:FACTIONS[issuer]?.name||'Independent principal',issuerNpc:person?.id||null,issuerNpcName:person?.name||null,targetFaction,targetFactionName:targetFaction?FACTIONS[targetFaction]?.name:null}}
 function tacticalContract(title,pay,text,missionType,kind='scout'){const c=contract(kind,title,pay,true,text);c.encounter='tacticalMission';c.missionType=missionType;c.targetFaction=null;c.targetFactionName=null;return c}
 export function generateContracts(){
- ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[];
+ ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[],powers=localPowers(sys);
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
  if(sys==='Kestrel'||sys==='Nadir'){
    const hazard=contract('escort','Meteor-swarm convoy escort',260+Math.round((1-security)*240),true,'Escort civilian transports through a charted meteor swarm. Shared sensor tracks let the convoy evade; defensive fire and physical screening may be needed.');
@@ -107,8 +108,10 @@ export function generateContracts(){
  if(sys==='Nadir'||sys==='Kestrel')contracts.push(tacticalContract('Prisoner rescue',560,'A prisoner transport is racing toward a transfer rendezvous. Run it down, stop it and board before the hand-off window closes.','prisonerRescue','antiPiracy'));
  if(sys==='Kestrel'||sys==='Nadir')contracts.push(tacticalContract('Derelict salvage race',330,'Another licensed salvage crew is converging on the same valuable derelict. First crew to match vectors and establish physical possession gets the claim. Weapons are not authorised.','salvageRace','scout'));
  contracts.push(contract('scout','Survey / scout run',130+Math.round((1-security)*120),true,'Map contacts and route hazards in the outer system.'));
- if(sys==='Pelagos'||sys==='Nadir')contracts.push(contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.'));
- if(security<.6)contracts.push(contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.'));
+ const governments=powers.filter(x=>x.faction.kind==='government'&&x.presence>.06);
+ if((sys==='Pelagos'||sys==='Nadir')&&governments.length>=2){const c=contract('mercenary','Local war contract',320+Math.round((1-security)*260),true,'One recognised local government wants naval support against another faction inside this solar system.');if(c.targetFaction&&factionForcePlan(c.targetFaction,sys,2,'war').count>0)contracts.push(c)}
+ const pirates=powers.filter(x=>!x.faction.lawful&&x.presence>.06);
+ if(security<.6&&pirates.length){const c=contract('antiPiracy','Pirate suppression',220+Math.round((1-security)*250),true,'Hunt raiders threatening commercial traffic.');if(c.targetFaction&&factionForcePlan(c.targetFaction,sys,2,'raid').count>0)contracts.push(c)}
  if(authority<.6)contracts.push(contract('smuggling','Quiet cargo movement',360+Math.round(authority*180),false,'Move restricted cargo through a gate without attracting official attention.'));
  if((campaign.central.standing||0)>55)contracts.push(contract('government','Central Government special tasking',500,true,'A naval liaison wants a deniable, experienced independent fleet for sensitive work.'));
  return contracts;

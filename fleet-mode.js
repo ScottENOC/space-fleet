@@ -2,7 +2,7 @@ import {Battle,initialiseShip,buildPursuitFrigate} from './sim.js';
 import {blueprintToShip} from './shipyard.js';
 import {makeTradingPremade} from './trading-hulks.js';
 import {campaign,activePlayerShips,instantiateCampaignShip,applySavedState} from './campaign-core.js';
-import {campaignEnemyFleet} from './faction-fleet-identity.js?v=73';
+import {campaignEnemyFleet} from './faction-fleet-identity.js?v=77';
 
 const DEFAULT_PRIORITY=['weapons','engine','reactor','bridge','shield','radiator','armor','hull'];
 
