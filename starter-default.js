@@ -12,6 +12,7 @@ import './interdiction-ui.js?v=75';
 import './interdiction-campaign-hooks.js?v=75';
 import './tactical-missions.js?v=76';
 import './tactical-mission-ui.js?v=76';
+import './faction-strategy.js?v=77';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
