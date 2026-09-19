@@ -9,7 +9,7 @@ registerBattleHook('afterStep','lacuna-debris-objective-guard',({battle})=>{
 },210);
 
 if(typeof document!=='undefined')document.addEventListener('click',e=>{
- const target=e.target?.closest?.('[data-travel],[data-repair],[data-buyhull],[data-contract],[data-buygood],[data-sellgood]');if(!target)return;
+ const target=e.target?.closest?.('[data-travel],[data-repair],[data-buyhull],[data-contract],[data-buygood],[data-sellgood],[data-enc],#newChoices');if(!target)return;
  const g=campaign.mainPlot?.gauntlet,atLacuna=campaign.location==='Lacuna Reach';
- if(g?.active||atLacuna){e.preventDefault();e.stopImmediatePropagation();const reason=g?.active?'The fleet is committed to the Lacuna transit. There is no gate diversion, dockyard, market or resupply access between legs.':'Lacuna Reach has no functioning registered dockyard, market or gate authority. Secure local facilities before attempting ordinary campaign servicing.';alert(reason)}
+ if(g?.active||atLacuna){e.preventDefault();e.stopImmediatePropagation();const reason=g?.active?'The fleet is committed to the Lacuna transit. There is no gate diversion, dockyard, market or resupply access between legs.':'Lacuna Reach has no functioning civilian economy or rescue network. Use the Lacuna survival operations to secure local resources and infrastructure.';alert(reason)}
 },true);
