@@ -16,7 +16,10 @@ import './faction-strategy.js?v=77';
 import './combat-objectives.js?v=78';
 import './combat-objective-ui.js?v=78';
 import './main-plot.js?v=80';
-import './main-plot-ui.js?v=80';
+import './lacuna-transit.js?v=81';
+import './lacuna-transit-guard.js?v=81';
+import './lacuna-transit-ui.js?v=81';
+import './main-plot-ui.js?v=81';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
