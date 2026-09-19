@@ -33,19 +33,17 @@ const THREADS={
 
 function seedConnections(truth){
  const ids=Object.keys(THREADS),map={};
- // At least one genuine continuation, but never assume every strange thing has one cause.
  const primary=truth==='gateEcho'?'unregisteredGate':truth==='blackProject'?'derelictWarship':'missingExpedition';
  for(const id of ids)map[id]=id===primary;
  const extra=pick(ids.filter(x=>x!==primary));if(Math.random()<.45)map[extra]=true;
  return map;
 }
 function ensure(){
- campaign.mainPlot??={};const p=campaign.mainPlot;
- p.act??='nadir';p.nadirResolution??=null;p.archiveRecovered??=false;p.unlockedDay??=null;
- p.connections??=seedConnections(investigationState().truth);
- p.threads??={};
- for(const id of Object.keys(THREADS))p.threads[id]??={id,stage:0,progress:0,findings:[],status:'locked',resolved:false};
- return p;
+ let dirty=false;if(!campaign.mainPlot){campaign.mainPlot={};dirty=true}const p=campaign.mainPlot;
+ if(!p.act){p.act='nadir';dirty=true}if(p.nadirResolution===undefined){p.nadirResolution=null;dirty=true}if(p.archiveRecovered===undefined){p.archiveRecovered=false;dirty=true}if(p.unlockedDay===undefined){p.unlockedDay=null;dirty=true}
+ if(!p.connections){p.connections=seedConnections(investigationState().truth);dirty=true}if(!p.threads){p.threads={};dirty=true}
+ for(const id of Object.keys(THREADS))if(!p.threads[id]){p.threads[id]={id,stage:0,progress:0,findings:[],status:'locked',resolved:false};dirty=true}
+ if(dirty)saveCampaign(campaign);return p;
 }
 function resolvedN17(){const site=expeditionSummary().site;return ['seized','destroyed','recovered','contained'].includes(site.contactOutcome)||site.contactState==='hailed'||site.contactState==='observed'}
 export function plotSummary(){
