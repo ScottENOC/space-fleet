@@ -13,7 +13,8 @@ export const SYSTEMS={
  'Haven Reach':{authority:.7,market:.85,security:.75,links:['Sol Gateway','Pelagos','Kestrel'],note:'Established colony system, naval paperwork hub and gateway to the frontier.'},
  'Pelagos':{authority:.45,market:1,security:.55,links:['Haven Reach','Nadir'],note:'Prosperous commercial colonies with several rival planetary governments.'},
  'Kestrel':{authority:.28,market:.45,security:.3,links:['Haven Reach','Nadir'],note:'Young scattered colonies, survey claims and large stretches of barely governed space.'},
- 'Nadir':{authority:.12,market:.5,security:.15,links:['Pelagos','Kestrel'],note:'Remote frontier system. Smugglers, private navies and pirates operate openly beyond the main settlements.'}
+ 'Nadir':{authority:.12,market:.5,security:.15,links:['Pelagos','Kestrel'],note:'Remote frontier system. Smugglers, private navies and pirates operate openly beyond the main settlements.'},
+ 'Lacuna Reach':{authority:0,market:0,security:0,links:[],note:'Unregistered dormant endpoint. No functioning gate authority, market, repair yard or surveyed return route is available yet.'}
 };
 
 export {FACTIONS};
@@ -44,9 +45,10 @@ export function activeFleetProfile(){
 
 export function cargoUsed(){return Object.values(campaign.cargo||{}).reduce((n,x)=>n+(x.qty||0),0)}
 export function cargoFree(){return Math.max(0,activeFleetProfile().cargoCapacity-cargoUsed())}
+function deepRouteLocked(){return !!campaign.mainPlot?.gauntlet?.active||campaign.location==='Lacuna Reach'}
 
 export function gateDecision(from,to){
- ensureFrontierState();const dest=SYSTEMS[to],profile=activeFleetProfile(),central=campaign.central;
+ ensureFrontierState();if(deepRouteLocked())return{allowed:false,reason:'No ordinary gate diversion is available during deep-route transit or from the unsurveyed Lacuna endpoint.'};const dest=SYSTEMS[to],profile=activeFleetProfile(),central=campaign.central;
  if(!dest)return{allowed:false,reason:'No calculated gate route.'};
  const scrutiny=Math.max(SYSTEMS[from]?.authority||0,dest.authority||0);
  if(scrutiny<.25)return{allowed:true,risk:.05,reason:'Frontier gate has little effective inspection.'};
@@ -75,7 +77,7 @@ export function marketPrice(good,system,buy=true){
  return Math.max(1,Math.round(g.base*mod*(buy?1.08:.92)));
 }
 export function tradeGood(good,qty,buy){
- ensureFrontierState();qty=Math.max(0,Math.floor(qty));const g=GOODS[good];if(!g||!qty)return false;
+ ensureFrontierState();if(deepRouteLocked())return false;qty=Math.max(0,Math.floor(qty));const g=GOODS[good];if(!g||!qty)return false;
  campaign.cargo[good]??={qty:0,illegal:!!g.illegal};
  if(buy){qty=Math.min(qty,cargoFree());const cost=marketPrice(good,campaign.location,true)*qty;if(qty<=0||campaign.credits<cost)return false;campaign.credits-=cost;campaign.cargo[good].qty+=qty;}
  else{qty=Math.min(qty,campaign.cargo[good].qty);if(qty<=0)return false;campaign.credits+=marketPrice(good,campaign.location,false)*qty;campaign.cargo[good].qty-=qty;}
@@ -83,7 +85,7 @@ export function tradeGood(good,qty,buy){
 }
 
 export function buyTradingHulk(kind){
- ensureFrontierState();const hull=HULLS[kind];if(!hull?.civilianHull||campaign.credits<(hull.basePrice||999999))return null;
+ ensureFrontierState();if(deepRouteLocked())return null;const hull=HULLS[kind];if(!hull?.civilianHull||campaign.credits<(hull.basePrice||999999))return null;
  campaign.credits-=hull.basePrice;const number=campaign.ships.filter(s=>s.blueprint?.hullId===kind).length+1,name=`${hull.name.split('-class')[0]} ${number}`;
  const bp=makeTradingPremade(kind);bp.name=name;const entry={id:'ship_'+Math.random().toString(36).slice(2,10),name,blueprint:bp,status:'active',xp:0,battles:0,kills:0,state:null,history:[`Day ${campaign.day}: purchased at ${campaign.location}.`]};campaign.ships.push(entry);saveCampaign(campaign);return entry;
 }
@@ -93,7 +95,7 @@ function contract(kind,title,pay,legal,text){const issuer=issuerFor(kind,campaig
 function tacticalContract(title,pay,text,missionType,kind='scout'){const c=contract(kind,title,pay,true,text);c.encounter='tacticalMission';c.missionType=missionType;c.targetFaction=null;c.targetFactionName=null;return c}
 function combatObjectiveContract(title,pay,text,objectiveType){const c=contract('antiPiracy',title,pay,true,text);c.encounter='combatObjective';c.objectiveType=objectiveType;return c}
 export function generateContracts(){
- ensureFrontierState();const sys=campaign.location,security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[],powers=localPowers(sys);
+ ensureFrontierState();const sys=campaign.location;if(deepRouteLocked())return[];const security=SYSTEMS[sys].security,authority=SYSTEMS[sys].authority,contracts=[],powers=localPowers(sys);
  contracts.push(contract('escort','Convoy escort',180+Math.round((1-security)*220),true,'Escort civilian transports between local planets and the gate approaches.'));
  if(sys==='Kestrel'||sys==='Nadir'){
    const hazard=contract('escort','Meteor-swarm convoy escort',260+Math.round((1-security)*240),true,'Escort civilian transports through a charted meteor swarm. Shared sensor tracks let the convoy evade; defensive fire and physical screening may be needed.');
@@ -125,10 +127,10 @@ export function generateContracts(){
 }
 
 export function completeAbstractContract(c){
- ensureFrontierState();campaign.day+=1;campaign.credits+=c.pay;campaign.contractsCompleted[c.kind]=(campaign.contractsCompleted[c.kind]||0)+1;
+ ensureFrontierState();if(deepRouteLocked())return false;campaign.day+=1;campaign.credits+=c.pay;campaign.contractsCompleted[c.kind]=(campaign.contractsCompleted[c.kind]||0)+1;
  if(c.legal){campaign.central.lawfulness+=1;campaign.reputation+=1;if((c.issuer||'central')!=='central')changePlayerStanding('central',c.kind==='antiPiracy'?2:1);changePlayerStanding(c.issuer||'central',c.kind==='government'?4:2);}else{campaign.central.lawfulness-=4;campaign.cargo.restricted??={qty:0,illegal:true};campaign.cargo.restricted.qty+=Math.min(5,cargoFree());changePlayerStanding(c.issuer||'blackWake',3);}
  if(c.issuerNpc)recordNpcContract(c.issuerNpc,true);
  if(c.kind==='government'){campaign.central.auxiliary=true;campaign.central.militaryPermit=true;campaign.log.push(`Day ${campaign.day}: Central Naval Liaison granted auxiliary transit credentials.`);}
  else campaign.log.push(`Day ${campaign.day}: completed ${c.title} for ${c.issuerNpcName||c.issuerName||FACTIONS[c.issuer]?.name||'a local principal'}; earned ${c.pay} cr.`);
- saveCampaign(campaign);
+ saveCampaign(campaign);return true;
 }

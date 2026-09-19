@@ -66,12 +66,16 @@ function makeTacticalMissionShips(type){
 function markLargestTarget(fleet){const t=[...fleet].sort((a,b)=>(b.grid?.validCells?.length||b.modules?.length||0)-(a.grid?.validCells?.length||a.modules?.length||0))[0];if(t){t.missionObjectiveTarget=true;t.name=`${t.name} — designated target`}return t}
 
 export function createFleetBattle(playerShips,enemyShips,seed=1){
-  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length,missionType=null,combatObjectiveType=null;
+  let campaignEntries=null,nonCombatScenario=null,playerCombatCount=playerShips.length,missionType=null,combatObjectiveType=null,lacunaLeg=null;
   if(typeof window!=='undefined'&&window.__campaignActive){
     const persistent=activePlayerShips(),enc=campaign.pendingEncounter;
     if(persistent.length){
       campaignEntries=persistent;playerShips=persistent.map(x=>instantiateCampaignShip(x,'P'));playerCombatCount=playerShips.length;
-      if(enc?.kind==='hazardEscort'){
+      if(enc?.kind==='lacunaTransit'){
+        lacunaLeg=enc.lacunaLeg;
+        if(lacunaLeg==='pursuit')enemyShips=makeFactionEnemyFleet(enc.factionId||'redKnives',Math.max(2,persistent.length));
+        else{nonCombatScenario='lacunaTransit';enemyShips=[];}
+      }else if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
       }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
         nonCombatScenario='smugglerInterdiction';enemyShips=makeInterdictionRunners(enc.runnerCount||enc.contract?.runnerCount||5);
@@ -104,10 +108,12 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     if(s.missionProtectedShip){s.withdrawOrder=true;s.ramPolicy='avoid';s.formationDiscipline='independent';s.order='PROTECTED WITHDRAWAL'}
     return s;
   });
-  b.combatObjectiveType=combatObjectiveType;
+  b.combatObjectiveType=combatObjectiveType;b.lacunaLeg=lacunaLeg;
   if(nonCombatScenario){
     b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;b.missionType=missionType;
-    if(nonCombatScenario==='meteorEscort'){
+    if(nonCombatScenario==='lacunaTransit'){
+      const ps=b.ships.filter(s=>s.team==='P');ps.forEach((s,i)=>Object.assign(s,{x:-900,y:(i-(ps.length-1)/2)*280,angle:0,vx:120,vy:0}));
+    }else if(nonCombatScenario==='meteorEscort'){
       const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
       combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
       civ.forEach((s,i)=>Object.assign(s,{x:-1450,y:(i-(civ.length-1)/2)*320,angle:0}));
