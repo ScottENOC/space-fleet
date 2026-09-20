@@ -33,6 +33,8 @@ import './lacuna-vault.js?v=86';
 import './lacuna-vault-ui.js?v=86';
 import './lacuna-orison.js?v=87';
 import './lacuna-orison-ui.js?v=87';
+import './lacuna-orison-core.js?v=88';
+import './lacuna-orison-core-ui.js?v=88';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
