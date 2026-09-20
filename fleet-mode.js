@@ -51,6 +51,7 @@ function makeInterdictionRunners(count=5){
 }
 function makeLacunaObserver(){const s=makeFactionEnemyFleet('nadir',1)[0];s.name='Unidentified contact';s.factionId=null;s.factionName='Unidentified human craft';s.factionStyle='No recognised transponder. Registry surfaces have been masked.';s.missionNonHostile=true;s.lacunaObserver=true;s.ai='pursuit';for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*1.16;return s}
 function makeLacunaSentries(){return Array.from({length:2},(_,i)=>{const s=makeFactionEnemyFleet('nadir',1)[0];s.name=`Unidentified picket ${i+1}`;s.factionId=null;s.factionName='Inner-system picket';s.factionStyle='Cold-running human warship with no recognised registry broadcast.';s.missionNonHostile=true;s.lacunaSentry=true;s.ai='pursuit';for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*(1.08+i*.04);return s})}
+function makeOrisonSentries(){return Array.from({length:3},(_,i)=>{const s=makeFactionEnemyFleet('central',1)[0];s.name=`ORISON continuity sentry ${i+1}`;s.factionId=null;s.factionName='Automated continuity defence';s.factionStyle='Uncrewed closure-era defence craft. No modern registry or live command traffic.';s.missionNonHostile=true;s.orisonSentry=true;s.automated=true;s.ai='pursuit';for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*(.92+i*.03);return s})}
 function scaleDrives(s,factor){for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*factor;return s}
 function missionShip(hull,name,team='E',drive=1){const s=blueprintToShip(makeTradingPremade(hull),team);s.name=name;s.ai='pursuit';scaleDrives(s,drive);return s}
 function makeTacticalMissionShips(type){
@@ -83,6 +84,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
         nonCombatScenario='lacunaActivity';enemyShips=[makeLacunaObserver()];
       }else if(enc?.kind==='lacunaInner'){
         nonCombatScenario='lacunaInner';enemyShips=makeLacunaSentries();
+      }else if(enc?.kind==='orisonApproach'){
+        nonCombatScenario='orisonApproach';enemyShips=makeOrisonSentries();
       }else if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
       }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
@@ -125,6 +128,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
       const ps=b.ships.filter(s=>s.team==='P'),c=b.ships.find(s=>s.lacunaObserver);ps.forEach((s,i)=>Object.assign(s,{x:-1600,y:(i-(ps.length-1)/2)*240,angle:0,vx:95,vy:0}));if(c)Object.assign(c,{x:1200,y:180,angle:0,vx:185,vy:0});
     }else if(nonCombatScenario==='lacunaInner'){
       const ps=b.ships.filter(s=>s.team==='P'),ss=b.ships.filter(s=>s.lacunaSentry);ps.forEach((s,i)=>Object.assign(s,{x:-2200,y:(i-(ps.length-1)/2)*260,angle:0,vx:70,vy:0}));ss.forEach((s,i)=>Object.assign(s,{x:1500,y:(i-.5)*850,angle:Math.PI,vx:-40,vy:0}));
+    }else if(nonCombatScenario==='orisonApproach'){
+      const ps=b.ships.filter(s=>s.team==='P'),ss=b.ships.filter(s=>s.orisonSentry);ps.forEach((s,i)=>Object.assign(s,{x:-2400,y:(i-(ps.length-1)/2)*260,angle:0,vx:65,vy:0}));ss.forEach((s,i)=>Object.assign(s,{x:1250,y:(i-(ss.length-1)/2)*780,angle:Math.PI,vx:-25,vy:0}));
     }else if(nonCombatScenario==='meteorEscort'){
       const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
       combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
