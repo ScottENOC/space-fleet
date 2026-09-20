@@ -43,6 +43,8 @@ import './peregrine-council.js?v=91';
 import './peregrine-council-ui.js?v=91';
 import './peregrine-return-engineering.js?v=92';
 import './peregrine-return-engineering-ui.js?v=92';
+import './peregrine-return-decision.js?v=93';
+import './peregrine-return-decision-ui.js?v=93';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);

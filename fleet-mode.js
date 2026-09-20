@@ -88,6 +88,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
         nonCombatScenario='orisonApproach';enemyShips=makeOrisonSentries();
       }else if(enc?.kind==='peregrineTransit'){
         nonCombatScenario='peregrineTransit';enemyShips=[];
+      }else if(enc?.kind==='peregrineReturnTransit'){
+        nonCombatScenario='peregrineReturnTransit';enemyShips=[];
       }else if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
       }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
@@ -124,7 +126,7 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
   b.combatObjectiveType=combatObjectiveType;b.lacunaLeg=lacunaLeg;b.lacunaSiteId=lacunaSiteId;
   if(nonCombatScenario){
     b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;b.missionType=missionType;
-    if(nonCombatScenario==='lacunaTransit'||nonCombatScenario==='lacunaSurvival'||nonCombatScenario==='peregrineTransit'){
+    if(nonCombatScenario==='lacunaTransit'||nonCombatScenario==='lacunaSurvival'||nonCombatScenario==='peregrineTransit'||nonCombatScenario==='peregrineReturnTransit'){
       const ps=b.ships.filter(s=>s.team==='P');ps.forEach((s,i)=>Object.assign(s,{x:-900,y:(i-(ps.length-1)/2)*280,angle:0,vx:nonCombatScenario==='lacunaTransit'?120:80,vy:0}));
     }else if(nonCombatScenario==='lacunaActivity'){
       const ps=b.ships.filter(s=>s.team==='P'),c=b.ships.find(s=>s.lacunaObserver);ps.forEach((s,i)=>Object.assign(s,{x:-1600,y:(i-(ps.length-1)/2)*240,angle:0,vx:95,vy:0}));if(c)Object.assign(c,{x:1200,y:180,angle:0,vx:185,vy:0});
