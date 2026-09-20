@@ -25,6 +25,8 @@ import './main-plot-ui.js?v=81';
 import './lacuna-survival-ui.js?v=82';
 import './lacuna-activity.js?v=83';
 import './lacuna-activity-ui.js?v=83';
+import './lacuna-inner-system.js?v=84';
+import './lacuna-inner-system-ui.js?v=84';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
