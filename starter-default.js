@@ -39,6 +39,8 @@ import './peregrine-transit.js?v=89';
 import './peregrine-transit-ui.js?v=89';
 import './peregrine-contact.js?v=90';
 import './peregrine-contact-ui.js?v=90';
+import './peregrine-council.js?v=91';
+import './peregrine-council-ui.js?v=91';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
