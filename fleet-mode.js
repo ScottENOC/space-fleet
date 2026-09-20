@@ -49,6 +49,7 @@ function makeInterdictionRunners(count=5){
    return s;
  });
 }
+function makeLacunaObserver(){const s=makeFactionEnemyFleet('nadir',1)[0];s.name='Unidentified contact';s.factionId=null;s.factionName='Unidentified human craft';s.factionStyle='No recognised transponder. Registry surfaces have been masked.';s.missionNonHostile=true;s.lacunaObserver=true;s.ai='pursuit';for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*1.16;return s}
 function scaleDrives(s,factor){for(const m of s.modules)if(m.type==='engine')m.force=(m.force||0)*factor;return s}
 function missionShip(hull,name,team='E',drive=1){const s=blueprintToShip(makeTradingPremade(hull),team);s.name=name;s.ai='pursuit';scaleDrives(s,drive);return s}
 function makeTacticalMissionShips(type){
@@ -77,6 +78,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
         else{nonCombatScenario='lacunaTransit';enemyShips=[];}
       }else if(enc?.kind==='lacunaSurvival'){
         nonCombatScenario='lacunaSurvival';lacunaSiteId=enc.siteId;enemyShips=[];
+      }else if(enc?.kind==='lacunaActivity'){
+        nonCombatScenario='lacunaActivity';enemyShips=[makeLacunaObserver()];
       }else if(enc?.kind==='hazardEscort'){
         nonCombatScenario='meteorEscort';playerShips=[...playerShips,...makeHazardConvoy(enc.convoyCount||2)];enemyShips=[];
       }else if(enc?.kind==='interdiction'||enc?.contract?.encounter==='interdiction'){
@@ -115,6 +118,8 @@ export function createFleetBattle(playerShips,enemyShips,seed=1){
     b.nonCombatScenario=nonCombatScenario;b.campaignBattle=true;b.missionType=missionType;
     if(nonCombatScenario==='lacunaTransit'||nonCombatScenario==='lacunaSurvival'){
       const ps=b.ships.filter(s=>s.team==='P');ps.forEach((s,i)=>Object.assign(s,{x:-900,y:(i-(ps.length-1)/2)*280,angle:0,vx:nonCombatScenario==='lacunaTransit'?120:80,vy:0}));
+    }else if(nonCombatScenario==='lacunaActivity'){
+      const ps=b.ships.filter(s=>s.team==='P'),c=b.ships.find(s=>s.lacunaObserver);ps.forEach((s,i)=>Object.assign(s,{x:-1600,y:(i-(ps.length-1)/2)*240,angle:0,vx:95,vy:0}));if(c)Object.assign(c,{x:1200,y:180,angle:0,vx:185,vy:0});
     }else if(nonCombatScenario==='meteorEscort'){
       const combat=b.ships.filter(s=>!s.civilianEscort),civ=b.ships.filter(s=>s.civilianEscort);
       combat.forEach((s,i)=>Object.assign(s,{x:-650,y:(i-(combat.length-1)/2)*260,angle:0}));
