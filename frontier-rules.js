@@ -1,4 +1,4 @@
-import {campaign,saveCampaign} from './campaign-core.js';
+import {campaign,saveCampaign,campaignServiceLocked} from './campaign-core.js';
 import {HULLS,MODULES} from './shipyard.js';
 import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './trading-hulks.js';
 import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=77';
@@ -14,7 +14,8 @@ export const SYSTEMS={
  'Pelagos':{authority:.45,market:1,security:.55,links:['Haven Reach','Nadir'],note:'Prosperous commercial colonies with several rival planetary governments.'},
  'Kestrel':{authority:.28,market:.45,security:.3,links:['Haven Reach','Nadir'],note:'Young scattered colonies, survey claims and large stretches of barely governed space.'},
  'Nadir':{authority:.12,market:.5,security:.15,links:['Pelagos','Kestrel'],note:'Remote frontier system. Smugglers, private navies and pirates operate openly beyond the main settlements.'},
- 'Lacuna Reach':{authority:0,market:0,security:0,links:[],note:'Unregistered dormant endpoint. No functioning gate authority, market, repair yard or surveyed return route is available yet.'}
+ 'Lacuna Reach':{authority:0,market:0,security:0,links:[],note:'Unregistered dormant endpoint. No functioning gate authority, market, repair yard or surveyed return route is available yet.'},
+ 'Peregrine':{authority:0,market:0,security:0,links:[],note:'Hidden continuity endpoint reached through ORISON. No recognised gate authority, market, dockyard or surveyed return route is available.'}
 };
 
 export {FACTIONS};
@@ -45,10 +46,10 @@ export function activeFleetProfile(){
 
 export function cargoUsed(){return Object.values(campaign.cargo||{}).reduce((n,x)=>n+(x.qty||0),0)}
 export function cargoFree(){return Math.max(0,activeFleetProfile().cargoCapacity-cargoUsed())}
-function deepRouteLocked(){return !!campaign.mainPlot?.gauntlet?.active||campaign.location==='Lacuna Reach'}
+function deepRouteLocked(){return campaignServiceLocked()}
 
 export function gateDecision(from,to){
- ensureFrontierState();if(deepRouteLocked())return{allowed:false,reason:'No ordinary gate diversion is available during deep-route transit or from the unsurveyed Lacuna endpoint.'};const dest=SYSTEMS[to],profile=activeFleetProfile(),central=campaign.central;
+ ensureFrontierState();if(deepRouteLocked())return{allowed:false,reason:'No ordinary gate diversion is available during deep-route transit or from an isolated endpoint without a surveyed route.'};const dest=SYSTEMS[to],profile=activeFleetProfile(),central=campaign.central;
  if(!dest)return{allowed:false,reason:'No calculated gate route.'};
  const scrutiny=Math.max(SYSTEMS[from]?.authority||0,dest.authority||0);
  if(scrutiny<.25)return{allowed:true,risk:.05,reason:'Frontier gate has little effective inspection.'};
