@@ -35,6 +35,8 @@ import './lacuna-orison.js?v=87';
 import './lacuna-orison-ui.js?v=87';
 import './lacuna-orison-core.js?v=88';
 import './lacuna-orison-core-ui.js?v=88';
+import './peregrine-transit.js?v=89';
+import './peregrine-transit-ui.js?v=89';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
