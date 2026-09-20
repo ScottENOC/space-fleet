@@ -1,0 +1,32 @@
+import {campaign,saveCampaign} from './campaign-core.js';
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const MODELS={
+ coupling:{name:'Coupled-endpoint model',cost:7,days:2,summary:'Reconstruct how a PEREGRINE field would load both the local endpoint and the dead ORISON/Lacuna side without energising either.',finding:'The merged model reproduces the Lacuna Burn only when two incompatible phase solutions overlap. A single reciprocal solution remains stable in simulation, but the distant endpoint carries a measurable induced load before a route fully opens.'},
+ wake:{name:'Founding-wake reconstruction',cost:6,days:2,summary:'Use ARGOSY arrival records and the founders’ medical/receiver logs to reconstruct the delayed wake that made route work taboo.',finding:'The delayed founding wake was not a second route opening. It was stored field energy ringing through poorly damped receiver hardware. Modern conditioning can absorb most of it, but only if the destination-side receiver is predicted correctly.'},
+ abort:{name:'Abort-envelope proof',cost:8,days:2,summary:'Prove that a test can be terminated before the precursor harmonics cross the regime associated with the Burn.',finding:'A low-energy reciprocal handshake can be instrumented with three independent abort thresholds. The probe can test phase lock, endpoint response and wake damping without ever opening a crewed transit corridor.'}
+};
+function fresh(){return{models:{coupling:false,wake:false,abort:false},modelComplete:false,confidence:0,probeMode:null,probeResult:null,probeSuccess:false,history:[],complete:false,nextLead:null}}
+function ensure(){campaign.mainPlot??={};campaign.mainPlot.peregrineReturnEngineering??=fresh();const s=campaign.mainPlot.peregrineReturnEngineering;s.models??={coupling:false,wake:false,abort:false};s.history??=[];return s}
+function council(){return campaign.mainPlot?.peregrineCouncil}
+function contact(){return campaign.mainPlot?.peregrineContact}
+function core(){return campaign.mainPlot?.orisonCore}
+function transit(){return campaign.mainPlot?.peregrine}
+function available(){return campaign.location==='Peregrine'&&!!council()?.complete&&council()?.nextLead==='PEREGRINE_RETURN_ENGINEERING'}
+function add(text){const s=ensure();s.history.push({day:campaign.day,text});campaign.log??=[];campaign.log.push(`Day ${campaign.day}: PEREGRINE return engineering — ${text}`)}
+function trust(delta){const c=contact();if(!c)return 0;c.trust=clamp((c.trust||0)+delta,-8,10);return c.trust}
+function accessBase(){const a=council()?.seedAccess;if(a==='full-supervised')return .68;if(a==='archive-only')return .56;return .39}
+function calculateConfidence(){let q=accessBase();const c=core(),t=transit();q+=(c?.recorderIntegrity||0)*.08;if(c?.corePath==='restore')q+=.06;if(t?.prep==='stabilise')q+=.04;return clamp(q,.35,.94)}
+function finishModels(){const s=ensure();if(s.modelComplete||!Object.values(s.models).every(Boolean))return;s.modelComplete=true;s.confidence=calculateConfidence();add(`Non-energising return model complete. Current reciprocal-solution confidence is ${Math.round(s.confidence*100)}%. The remaining uncertainty is now narrow enough to test with an unmanned field probe rather than a crewed ship.`)}
+export function returnEngineeringSummary(){const s=ensure();return{...s,available:available(),seedAccess:council()?.seedAccess||null,trust:contact()?.trust||0,modelOps:Object.entries(MODELS).map(([id,m])=>({id,...m,resolved:!!s.models[id],available:available()&&!s.models[id]})),canProbe:s.modelComplete&&!s.probeMode}}
+export function runReturnModel(id){const s=ensure(),m=MODELS[id];if(!available())return{ok:false,reason:'Return-route engineering is not yet available.'};if(!m)return{ok:false,reason:'Unknown engineering model.'};if(s.models[id])return{ok:false,reason:'That model is already complete.'};if(campaign.supplies<m.cost)return{ok:false,reason:`This model requires ${m.cost} supplies.`};campaign.supplies-=m.cost;campaign.day+=m.days;s.models[id]=true;add(`${m.name}: ${m.finding}`);finishModels();saveCampaign(campaign);return{ok:true}}
+export function launchReturnProbe(mode){const s=ensure();if(!s.modelComplete)return{ok:false,reason:'Complete the non-energising models before launching a probe.'};if(s.probeMode)return{ok:false,reason:'The return probe test has already been run.'};if(!['conservative','boundary'].includes(mode))return{ok:false,reason:'Unknown probe profile.'};const cost=mode==='conservative'?10:5,days=mode==='conservative'?2:1;if(campaign.supplies<cost)return{ok:false,reason:`This probe profile requires ${cost} supplies.`};campaign.supplies-=cost;campaign.day+=days;s.probeMode=mode;const q=s.confidence;
+ if(mode==='conservative'){
+   if(q>=.62){s.probeSuccess=true;s.probeResult='A disposable instrument package forms a reciprocal phase lock for 3.8 seconds, never opens a traversable corridor, and aborts cleanly below all three harmonic thresholds. The distant-end reflection matches ORISON geometry closely enough to prove that a controlled return route is physically possible.';trust(1);}
+   else{s.probeSuccess=false;s.probeResult='The probe finds the reciprocal phase family but cannot hold it inside the conservative abort envelope. It shuts down safely. The test proves the model is close, but the missing custody information is still materially limiting.';}
+ }else{
+   if(q>=.50){s.probeSuccess=true;s.probeResult='The probe is allowed to approach the outer abort boundary. It establishes a brief reciprocal lock and returns a strong ORISON-side reflection before the third threshold trips. The wake is larger than the Council prefers, but remains damped and non-destructive.';trust(-1);}
+   else{s.probeSuccess=false;s.probeResult='The boundary-profile probe crosses into phase wander before a clean reciprocal lock forms. Automatic abort saves the endpoint, but the probe package is lost to the collapsing field. The partial seed is not enough for another responsible test.';trust(-2);}
+ }
+ add(`Unmanned return probe (${mode}): ${s.probeResult}`);s.complete=true;s.nextLead=s.probeSuccess?'PEREGRINE_RETURN_DECISION':'PEREGRINE_SEED_RECOVERY';campaign.mainPlot.act=s.probeSuccess?'peregrine-return-decision':'peregrine-seed-recovery';saveCampaign(campaign);return{ok:true,success:s.probeSuccess,result:s.probeResult,confidence:s.confidence}}
+if(typeof window!=='undefined')window.__peregrineReturnEngineering={returnEngineeringSummary,runReturnModel,launchReturnProbe};
