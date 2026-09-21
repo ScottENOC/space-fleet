@@ -1,7 +1,0 @@
-v95 validation scope
-- Knowledge-driven actor selection from campaign intelligence.
-- Neutral contact protocol suppresses weapons until explicit weapons-free escalation.
-- Campaign launch requires an active player ship.
-- Non-hostile visitors do not auto-resolve the battle; custom scenario clears base winner until an outcome is reached.
-- Outcomes persist route-access state, faction knowledge and standing.
-- Browser/iPhone runtime validation still required.
