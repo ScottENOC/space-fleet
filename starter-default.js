@@ -51,6 +51,8 @@ import './lacuna-disclosure-ui.js?v=94';
 import './contact-protocol.js?v=95';
 import './lacuna-first-arrival.js?v=95';
 import './lacuna-first-arrival-ui.js?v=95';
+import './lacuna-corridor.js?v=96';
+import './lacuna-corridor-ui.js?v=96';
 
 if(!document.querySelector('link[href*="mystery-ui.css"]')){
   const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
