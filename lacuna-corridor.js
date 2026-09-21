@@ -6,6 +6,7 @@ import {ensureContactProtocol,hailContact,setContactDisposition,setContactROE,co
 
 const TOPIC='peregrineRoute';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const KNOWLEDGE_RANK={unknown:0,suspected:1,confirmed:2,coordinates:3,technical:4};
 const CHARTERS={
  restricted:{label:'Restricted continuity corridor',trust:-8,text:'Case-by-case diplomatic and emergency movements only. Mandatory inspection and escort.'},
  licensed:{label:'Licensed access corridor',trust:1,text:'Named permits for diplomatic, research and logistics traffic. Mandatory inspection; escorts for untrusted operators.'},
@@ -21,7 +22,7 @@ function trust(){return campaign.mainPlot?.peregrineContact?.trust||0}
 function available(){return campaign.location==='Lacuna Reach'&&firstArrival()?.complete&&firstArrival()?.nextLead==='LACUNA_CORRIDOR'}
 function add(text){const s=campaign.mainPlot?.lacunaCorridor||fresh();s.history??=[];s.history.push({day:campaign.day,text});s.history=s.history.slice(-60);campaign.log??=[];campaign.log.push(`Day ${campaign.day}: LACUNA CORRIDOR — ${text}`)}
 function rank(type){return type==='trade'?3:type==='transit'?2:type==='visit'?1:0}
-function interested(){return Object.keys(FACTIONS).filter(id=>knows(TOPIC,id,'confirmed')).sort((a,b)=>rank(knowledge(TOPIC,b).level)-rank(knowledge(TOPIC,a).level)||playerStanding(b)-playerStanding(a))}
+function interested(){return Object.keys(FACTIONS).filter(id=>knows(TOPIC,id,'confirmed')).sort((a,b)=>(KNOWLEDGE_RANK[knowledge(TOPIC,b).level]||0)-(KNOWLEDGE_RANK[knowledge(TOPIC,a).level]||0)||playerStanding(b)-playerStanding(a))}
 function want(id){const k=FACTIONS[id]?.kind;return(k==='merchant'||k==='industrial')?'trade':(k==='government'||k==='militia')?'transit':'visit'}
 function refreshClaims(s){const prior=new Map((s.claims||[]).map(x=>[x.factionId,x]));s.claims=[];for(const id of interested()){const p=s.permits[id],w=want(id);if(p&&rank(p.type)>=rank(w))continue;const old=prior.get(id);s.claims.push(old||{factionId:id,want:w,status:'pending',day:campaign.day,text:`${FACTIONS[id].name} requests ${w==='trade'?'commercial traffic rights':w==='transit'?'a standing transit permit':'case-by-case access'}.`})}}
 function ensure(){campaign.mainPlot??={};campaign.mainPlot.lacunaCorridor??=fresh();const s=campaign.mainPlot.lacunaCorridor;s.permits??={};s.claims??=[];s.incidents??=[];s.history??=[];s.traffic??=fresh().traffic;s.security??=fresh().security;if(!s.initialised&&available()){s.initialised=true;const r=route();if(r)s.security.level=Math.max(1,r.security||1);refreshClaims(s);add('The first outside contact is over. Standing rules are now required for access, inspection, escorts, trade and route security.');saveCampaign(campaign)}return s}
