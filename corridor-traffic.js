@@ -1,6 +1,6 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {FACTIONS,playerStanding} from './factions-system.js?v=77';
-import {factionStrategicSummary,factionForcePlan,commitFactionForce,advanceFactionStrategy} from './faction-strategy.js?v=77';
+import {factionStrategicSummary,factionForcePlan,commitFactionForce,advanceFactionStrategy} from './faction-strategy.js?v=98';
 import {corridorSummary} from './lacuna-corridor.js?v=97';
 
 const GOODS={
