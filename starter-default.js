@@ -12,7 +12,9 @@ import './interdiction-ui.js?v=75';
 import './interdiction-campaign-hooks.js?v=75';
 import './tactical-missions.js?v=76';
 import './tactical-mission-ui.js?v=76';
-import './faction-strategy.js?v=77';
+import './faction-strategy.js?v=98';
+import './strategic-fronts.js?v=98';
+import './strategic-fronts-ui.js?v=98';
 import './combat-objectives.js?v=78';
 import './combat-objective-ui.js?v=78';
 import './main-plot.js?v=80';
@@ -55,9 +57,5 @@ import './lacuna-corridor.js?v=97';
 import './lacuna-corridor-ui.js?v=97';
 import './corridor-traffic.js?v=97';
 import './corridor-traffic-ui.js?v=97';
-
-if(!document.querySelector('link[href*="mystery-ui.css"]')){
-  const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link);
-}
-
+if(!document.querySelector('link[href*="mystery-ui.css"]')){const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link)}
 document.querySelector('#presetPursuit')?.click();
