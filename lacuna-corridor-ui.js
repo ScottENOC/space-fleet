@@ -1,5 +1,5 @@
 import {campaign} from './campaign-core.js';
-import {corridorSummary,chooseCorridorCharter,setInspectionPolicy,setEscortPolicy,issuePermit,denyPermit,revokePermit,reinforceCorridor,repairCorridor,advanceCorridorCycle,corridorIncidentAction,corridorIncidentSummary} from './lacuna-corridor.js?v=96';
+import {corridorSummary,chooseCorridorCharter,setInspectionPolicy,setEscortPolicy,issuePermit,denyPermit,revokePermit,reinforceCorridor,repairCorridor,advanceCorridorCycle,corridorIncidentAction,corridorIncidentSummary} from './lacuna-corridor.js?v=97';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let sig='';
 function host(){const base=document.querySelector('#lacunaFirstArrivalPanel')||document.querySelector('#lacunaDisclosurePanel');if(!base)return null;let h=document.querySelector('#lacunaCorridorPanel');if(!h){h=document.createElement('section');h.id='lacunaCorridorPanel';h.className='investigationPanel mainPlotPanel';base.after(h)}return h}
