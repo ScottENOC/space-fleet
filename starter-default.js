@@ -55,7 +55,7 @@ import './lacuna-first-arrival.js?v=95';
 import './lacuna-first-arrival-ui.js?v=95';
 import './lacuna-corridor.js?v=97';
 import './lacuna-corridor-ui.js?v=97';
-import './corridor-traffic.js?v=97';
+import './corridor-traffic.js?v=98';
 import './corridor-traffic-ui.js?v=97';
 if(!document.querySelector('link[href*="mystery-ui.css"]')){const link=document.createElement('link');link.rel='stylesheet';link.href='mystery-ui.css?v=73';document.head.append(link)}
 document.querySelector('#presetPursuit')?.click();
