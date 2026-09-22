@@ -2,7 +2,7 @@ import {campaign,saveCampaign} from './campaign-core.js';
 import {registerBattleHook} from './battle-hooks.js';
 import {changePlayerStanding,FACTIONS} from './factions-system.js?v=77';
 import {applyFactionLosses} from './faction-strategy.js?v=98';
-import {applyPersistentFleetBattleLoss,recordPlayerFrontContribution} from './strategic-fronts.js?v=98';
+import {applyPersistentFleetBattleLoss,recordPlayerFrontContribution} from './strategic-fronts.js?v=99';
 import {recordNpcContract} from './campaign-npcs.js?v=69';
 
 function shipLossWeight(s){const cells=s.grid?.validCells?.length||20;let w=cells>=300?8:cells>=180?6:cells>=90?4:cells>=35?2.2:1.2;if(s.missionObjectiveTarget)w*=1.8;return w}

@@ -4,7 +4,7 @@ import {makePremade} from './premades.js';
 import './craft-catalog.js';
 import {FACTIONS,localPowers} from './factions-system.js?v=77';
 import {factionForcePlan,hullAllowedByPlan,commitFactionForce} from './faction-strategy.js?v=98';
-import {persistentFleetFor} from './strategic-fronts.js?v=98';
+import {persistentFleetFor} from './strategic-fronts.js?v=99';
 import {installSpecialisation,applySpecialisations} from './ship-specialisations.js?v=70';
 
 export const FACTION_FLEET_IDENTITIES={
