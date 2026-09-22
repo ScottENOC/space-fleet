@@ -1,7 +1,7 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {FACTIONS,playerStanding} from './factions-system.js?v=77';
 import {factionStrategicSummary,factionForcePlan,commitFactionForce,advanceFactionStrategy} from './faction-strategy.js?v=77';
-import {corridorSummary} from './lacuna-corridor.js?v=96';
+import {corridorSummary} from './lacuna-corridor.js?v=97';
 
 const GOODS={
  precisionParts:{label:'precision components',basePrice:34,demand:1.35},
