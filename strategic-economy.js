@@ -25,9 +25,10 @@ function nudgeFactionWealth(){for(const [id,fs] of Object.entries(campaign.facti
 function stepDay(){for(const [system,node] of Object.entries(state().nodes))stepSystem(system,node);nudgeFactionWealth()}
 export function advanceStrategicEconomy(targetDay=campaign.day){const s=state();let d=Math.floor(s.lastDay||targetDay),end=Math.max(d,Math.floor(targetDay||d)),steps=0;while(d<end&&steps<365){d++;stepDay();s.lastDay=d;steps++}if(steps)saveCampaign(campaign);return steps}
 export function marketModifier(good,system){advanceStrategicEconomy(campaign.day);const n=state().nodes[system],b=BASE[system];if(!n||!b)return 1;const stock=n.stocks[good]??50,scarcity=clamp((55-stock)/45,-.45,1.1),securityPenalty=(1-n.tradeSecurity)*.55,blockade=blockadePressure(system)*.35;return clamp(1+scarcity*.72+securityPenalty+blockade,.58,2.45)}
+export function marketAvailable(good,system=campaign.location){advanceStrategicEconomy(campaign.day);const n=state().nodes[system],b=BASE[system];if(!n||!b||!GOODS.includes(good))return 0;const stock=n.stocks[good]??0;return Math.max(0,Math.floor(stock*(.08+b.market*.08)))}
 export function recordMarketTrade(good,qty,buy,system=campaign.location){const n=state().nodes[system];if(!n||!GOODS.includes(good))return;const impact=Math.max(0,qty)*.35;n.stocks[good]=clamp((n.stocks[good]??50)+(buy?-impact:impact),0,100);n.shortages=GOODS.filter(g=>(n.stocks[g]??50)<25);saveCampaign(campaign)}
 export function economyNode(system=campaign.location){advanceStrategicEconomy(campaign.day);const n=state().nodes[system];return n?{...n,stocks:{...n.stocks}}:null}
 export function economySummary(){advanceStrategicEconomy(campaign.day);const s=state();return{day:campaign.day,nodes:Object.values(s.nodes).map(n=>({...n,stocks:{...n.stocks}})),history:[...s.history]}}
 
 advanceStrategicEconomy(campaign.day);
-if(typeof window!=='undefined'){window.__strategicEconomy={economySummary,economyNode,marketModifier,recordMarketTrade,advanceStrategicEconomy};setInterval(()=>advanceStrategicEconomy(campaign.day),1150)}
+if(typeof window!=='undefined'){window.__strategicEconomy={economySummary,economyNode,marketModifier,marketAvailable,recordMarketTrade,advanceStrategicEconomy};setInterval(()=>advanceStrategicEconomy(campaign.day),1150)}
