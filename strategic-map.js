@@ -2,7 +2,7 @@ import {campaign} from './campaign-core.js';
 import {SYSTEMS} from './frontier-rules.js';
 import {FACTIONS,localPowers} from './factions-system.js?v=77';
 import {strategicFrontSummary} from './strategic-fronts.js?v=99';
-import {strategicMissionEventSummary} from './strategic-mission-events.js?v=103';
+import {strategicMissionEventSummary} from './strategic-mission-events.js?v=104';
 import {corridorSummary} from './lacuna-corridor.js?v=97';
 import {trafficSummary} from './corridor-traffic.js?v=98';
 import {logisticsSummary} from './strategic-logistics.js?v=104';
