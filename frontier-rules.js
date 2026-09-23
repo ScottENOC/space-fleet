@@ -4,6 +4,7 @@ import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './tra
 import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=77';
 import {factionForcePlan} from './faction-strategy.js?v=77';
 import {issuerNpc,recordNpcContract} from './campaign-npcs.js?v=69';
+import {marketModifier,recordMarketTrade} from './strategic-economy.js?v=104';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const R=()=>Math.random();
@@ -73,16 +74,18 @@ const GOODS={
 };
 export {GOODS};
 export function marketPrice(good,system,buy=true){
- const g=GOODS[good],s=SYSTEMS[system]||SYSTEMS['Haven Reach'];let mod=1;
+ const g=GOODS[good];if(!g)return 0;let mod=1;
  if(system==='Pelagos'&&good==='luxuries')mod=.72;if(system==='Kestrel'&&['machinery','medicine'].includes(good))mod=1.45;if(system==='Nadir'&&good==='restricted')mod=.62;if(system==='Haven Reach'&&good==='machinery')mod=.82;if(system==='Sol Gateway'&&good==='medicine')mod=.8;
+ mod*=marketModifier(good,system);
  return Math.max(1,Math.round(g.base*mod*(buy?1.08:.92)));
 }
 export function tradeGood(good,qty,buy){
  ensureFrontierState();if(deepRouteLocked())return false;qty=Math.max(0,Math.floor(qty));const g=GOODS[good];if(!g||!qty)return false;
  campaign.cargo[good]??={qty:0,illegal:!!g.illegal};
- if(buy){qty=Math.min(qty,cargoFree());const cost=marketPrice(good,campaign.location,true)*qty;if(qty<=0||campaign.credits<cost)return false;campaign.credits-=cost;campaign.cargo[good].qty+=qty;}
- else{qty=Math.min(qty,campaign.cargo[good].qty);if(qty<=0)return false;campaign.credits+=marketPrice(good,campaign.location,false)*qty;campaign.cargo[good].qty-=qty;}
- saveCampaign(campaign);return true;
+ let traded=0;
+ if(buy){traded=Math.min(qty,cargoFree());const cost=marketPrice(good,campaign.location,true)*traded;if(traded<=0||campaign.credits<cost)return false;campaign.credits-=cost;campaign.cargo[good].qty+=traded;}
+ else{traded=Math.min(qty,campaign.cargo[good].qty);if(traded<=0)return false;campaign.credits+=marketPrice(good,campaign.location,false)*traded;campaign.cargo[good].qty-=traded;}
+ recordMarketTrade(good,traded,buy,campaign.location);saveCampaign(campaign);return true;
 }
 
 export function buyTradingHulk(kind){
