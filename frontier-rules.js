@@ -4,7 +4,7 @@ import {makeTradingPremade,cargoCapacityFromBlueprint,armamentClass} from './tra
 import {FACTIONS,ensureFactionState,issuerFor,changePlayerStanding,localPowers,relation} from './factions-system.js?v=77';
 import {factionForcePlan} from './faction-strategy.js?v=77';
 import {issuerNpc,recordNpcContract} from './campaign-npcs.js?v=69';
-import {marketModifier,recordMarketTrade} from './strategic-economy.js?v=104';
+import {marketModifier,marketAvailable,recordMarketTrade} from './strategic-economy.js?v=104';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const R=()=>Math.random();
@@ -83,7 +83,7 @@ export function tradeGood(good,qty,buy){
  ensureFrontierState();if(deepRouteLocked())return false;qty=Math.max(0,Math.floor(qty));const g=GOODS[good];if(!g||!qty)return false;
  campaign.cargo[good]??={qty:0,illegal:!!g.illegal};
  let traded=0;
- if(buy){traded=Math.min(qty,cargoFree());const cost=marketPrice(good,campaign.location,true)*traded;if(traded<=0||campaign.credits<cost)return false;campaign.credits-=cost;campaign.cargo[good].qty+=traded;}
+ if(buy){traded=Math.min(qty,cargoFree(),marketAvailable(good,campaign.location));const cost=marketPrice(good,campaign.location,true)*traded;if(traded<=0||campaign.credits<cost)return false;campaign.credits-=cost;campaign.cargo[good].qty+=traded;}
  else{traded=Math.min(qty,campaign.cargo[good].qty);if(traded<=0)return false;campaign.credits+=marketPrice(good,campaign.location,false)*traded;campaign.cargo[good].qty-=traded;}
  recordMarketTrade(good,traded,buy,campaign.location);saveCampaign(campaign);return true;
 }
