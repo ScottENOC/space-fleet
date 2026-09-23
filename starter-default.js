@@ -25,6 +25,7 @@ import './treaty-breach-recovery.js?v=108';
 import './treaty-fleet-enforcement.js?v=108';
 import './player-security-invocations.js?v=108';
 import './treaty-crisis-ai.js?v=108';
+import './treaty-contract-enforcement.js?v=108';
 import './strategic-economy.js?v=107';
 import './strategic-logistics.js?v=104';
 import './strategic-map.js?v=104';
