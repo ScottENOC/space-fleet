@@ -1,0 +1,20 @@
+import {campaign} from './campaign-core.js';
+import {SYSTEMS} from './frontier-rules.js';
+import {FACTIONS,localPowers} from './factions-system.js?v=77';
+import {strategicFrontSummary} from './strategic-fronts.js?v=99';
+import {strategicMissionEventSummary} from './strategic-mission-events.js?v=100';
+import {corridorSummary} from './lacuna-corridor.js?v=97';
+import {trafficSummary} from './corridor-traffic.js?v=98';
+
+const POS={
+ 'Sol Gateway':{x:9,y:51},'Haven Reach':{x:27,y:51},Pelagos:{x:48,y:31},Kestrel:{x:48,y:71},Nadir:{x:68,y:51},
+ 'Lacuna Reach':{x:85,y:39},Peregrine:{x:95,y:18}
+};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function known(name){if((campaign.knownSystems||[]).includes(name)||campaign.location===name)return true;if(name==='Lacuna Reach')return !!campaign.mainPlot?.gauntlet?.arrived||!!campaign.mainPlot?.lacunaSurvival?.scanComplete||!!campaign.mainPlot?.lacunaActivity;if(name==='Peregrine')return !!campaign.mainPlot?.peregrine?.arrived||!!campaign.mainPlot?.peregrineContact;return !!SYSTEMS[name]&&['Sol Gateway','Haven Reach','Pelagos','Kestrel','Nadir'].includes(name)}
+function powerSummary(name){return localPowers(name).filter(x=>x.presence>.025).slice(0,4).map(x=>({id:x.id,name:x.faction?.short||x.faction?.name||x.id,presence:x.presence,kind:x.faction?.kind||'unknown'}))}
+function ordinaryLinks(){const out=[],seen=new Set();for(const [a,node] of Object.entries(SYSTEMS))for(const b of node.links||[]){const k=[a,b].sort().join('|');if(seen.has(k))continue;seen.add(k);out.push({a,b,type:'gate',status:'open'})}return out}
+function deepLinks(){const out=[],d=campaign.mainPlot?.lacunaDisclosure?.route,c=campaign.mainPlot?.lacunaCorridor;if(known('Lacuna Reach')&&d){out.push({a:'Nadir',b:'Lacuna Reach',type:'deep-route',status:d.status||'secret-active',security:d.security||1})}if(known('Peregrine')&&campaign.mainPlot?.peregrineReturnDecision?.returned){out.push({a:'Lacuna Reach',b:'Peregrine',type:'continuity',status:c?.security?.integrity<70?'closed':(d?.status||'controlled-access'),security:c?.security?.level||1})}return out}
+function systemPressure(name,fronts,events){const active=fronts.filter(f=>f.system===name&&f.status==='active'),ops=events.filter(e=>e.system===name&&e.status==='available');const frontPressure=active.reduce((n,f)=>n+Math.abs(f.control||0)/32*35+Math.max(f.exhaustion?.[f.a]||0,f.exhaustion?.[f.b]||0)*.3,0),opPressure=ops.length*12;return clamp(Math.round(frontPressure+opPressure),0,100)}
+export function strategicMapSummary(){const sf=strategicFrontSummary(),events=strategicMissionEventSummary().events||[];let corridor=null,traffic=null;try{corridor=corridorSummary();traffic=trafficSummary()}catch{}const names=Object.keys(SYSTEMS).filter(known),systems=names.map(name=>{const node=SYSTEMS[name]||{},fronts=sf.fronts.filter(f=>f.system===name&&f.status!=='resolved'),fleets=sf.fleets.filter(f=>f.system===name||f.destination===name),ops=events.filter(e=>e.system===name&&['available','engaged'].includes(e.status));return{name,pos:POS[name]||{x:50,y:50},current:campaign.location===name,authority:node.authority||0,market:node.market||0,security:node.security||0,powers:powerSummary(name),fronts,fleets,operations:ops,pressure:systemPressure(name,fronts,ops)}});const links=[...ordinaryLinks(),...deepLinks()].filter(l=>known(l.a)&&known(l.b));return{day:campaign.day,location:campaign.location,systems,links,fronts:sf.fronts,fleets:sf.fleets,events,corridor:corridor?{charter:corridor.charter,routeStatus:corridor.routeStatus,security:corridor.security,traffic:corridor.traffic}:null,corridorTraffic:traffic?{missions:traffic.missions,pressure:traffic.pressure}:null}}
+if(typeof window!=='undefined')window.__strategicMapSummary=strategicMapSummary;
