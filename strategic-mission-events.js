@@ -1,7 +1,7 @@
 import {campaign,saveCampaign} from './campaign-core.js';
 import {FACTIONS,changePlayerStanding} from './factions-system.js?v=77';
 import {strategicFrontSummary} from './strategic-fronts.js?v=99';
-import {adjustFleetSupply} from './strategic-logistics.js?v=103';
+import {adjustFleetSupply} from './strategic-logistics.js?v=104';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function fresh(){return{version:1,nextId:1,events:[],history:[],seen:{}}}
